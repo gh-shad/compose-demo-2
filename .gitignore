@@ -1,0 +1,5 @@
+# Files Git must never save or upload
+*.log
+.env
+*.swp
+.DS_Store
