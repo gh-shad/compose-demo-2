@@ -71,4 +71,4 @@ git push
 
 Clean up the containers any time with: `docker compose down --volumes`
 
-Last demo run: not yet
+Last demo run: 12 Nov 2026, 20:30:51
