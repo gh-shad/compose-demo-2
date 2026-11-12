@@ -1,0 +1,113 @@
+#cloud-config
+# =============================================================================
+#  cloud-init.yaml - prepares the "compose-lab" virtual machine (VM)
+#  -----------------------------------------------------------------------------
+#  cloud-init is a standard tool that sets up a new Linux machine on its first
+#  start. Multipass gives this file to the new VM. The VM then:
+#    1. updates its package list and installs ca-certificates, curl and git
+#    2. writes the setup script below to /usr/local/sbin/setup-compose-lab.sh
+#    3. runs that script once. It installs Docker + Docker Compose, the GitHub
+#       CLI (gh), downloads the 4 demo images, creates ~/compose-demo, and writes
+#       ~/LAB-READY.txt when everything is finished.
+#
+#  Used by Start-Demo.bat automatically. To use it by hand:
+#    multipass launch 24.04 --name compose-lab --cpus 2 --memory 4G --disk 15G --cloud-init cloud-init.yaml --timeout 1500
+#  Every line is explained in docs/06-files-explained.md
+# =============================================================================
+
+package_update: true
+packages:
+  - ca-certificates
+  - curl
+  - git
+
+write_files:
+  - path: /usr/local/sbin/setup-compose-lab.sh
+    owner: root:root
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      # Runs once inside the new VM (called by cloud-init). Installs Docker, Git and
+      # the GitHub CLI (gh), downloads the 4 demo images, and marks the lab as ready.
+      set -euxo pipefail
+      export DEBIAN_FRONTEND=noninteractive
+
+      retry() {   # retry <attempts> <command...>  (college Wi-Fi can be slow)
+        local n=0 max="$1"; shift
+        until "$@"; do
+          n=$((n + 1))
+          [ "$n" -ge "$max" ] && return 1
+          sleep 10
+        done
+      }
+
+      # 1. Docker Engine + Compose plugin from Docker's official repository
+      install_docker_official() {
+        install -m 0755 -d /etc/apt/keyrings
+        retry 5 curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+        chmod a+r /etc/apt/keyrings/docker.asc
+        # shellcheck disable=SC1091
+        codename="$(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")"
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu ${codename} stable" \
+          > /etc/apt/sources.list.d/docker.list
+        retry 5 apt-get update
+        retry 3 apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+      }
+
+      # Fallback: Ubuntu's own packages, if Docker's site cannot be reached
+      install_docker_ubuntu() {
+        rm -f /etc/apt/sources.list.d/docker.list
+        retry 5 apt-get update
+        retry 3 apt-get install -y docker.io docker-compose-v2
+      }
+
+      if ! command -v docker >/dev/null 2>&1; then
+        install_docker_official || install_docker_ubuntu
+      fi
+
+      # 2. Git + GitHub CLI (gh) from GitHub's official repository (fallback: Ubuntu's package)
+      install_gh_official() {
+        retry 5 curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg -o /etc/apt/keyrings/githubcli-archive-keyring.gpg
+        chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+          > /etc/apt/sources.list.d/github-cli.list
+        retry 5 apt-get update
+        retry 3 apt-get install -y gh
+      }
+      install_gh_ubuntu() {
+        rm -f /etc/apt/sources.list.d/github-cli.list
+        retry 5 apt-get update
+        retry 3 apt-get install -y gh
+      }
+      retry 3 apt-get install -y git
+      if ! command -v gh >/dev/null 2>&1; then
+        install_gh_official || install_gh_ubuntu
+      fi
+
+      systemctl enable --now docker
+      usermod -aG docker ubuntu
+
+      # 3. Download every image now, so the live demo works even without Wi-Fi
+      for img in nginx:latest mysql:8.4 adminer:latest busybox:latest; do
+        retry 5 docker pull "$img"
+      done
+
+      # 4. An empty project folder for the normal user
+      #    (Start-Demo.bat copies the project into it, or use: git clone <project address>)
+      install -d -o ubuntu -g ubuntu /home/ubuntu/compose-demo
+
+      # 5. Ready marker (checked with: cat /home/ubuntu/LAB-READY.txt)
+      {
+        echo "COMPOSE LAB READY"
+        echo "Docker:  $(docker version --format '{{.Server.Version}}')"
+        echo "Compose: $(docker compose version --short)"
+        echo "Git:     $(git --version)"
+        echo "gh:      $(gh --version | head -1)"
+        echo "Images:  nginx:latest mysql:8.4 adminer:latest busybox:latest"
+        echo "Folder:  /home/ubuntu/compose-demo"
+        echo "Next:    put the project in ~/compose-demo (Start-Demo.bat does this), then: cd ~/compose-demo && ./demo.sh"
+      } > /home/ubuntu/LAB-READY.txt
+      chown ubuntu:ubuntu /home/ubuntu/LAB-READY.txt
+
+runcmd:
+  - [bash, /usr/local/sbin/setup-compose-lab.sh]

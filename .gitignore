@@ -1,5 +1,13 @@
-# Files Git must never save or upload
-*.log
+# .gitignore - files that Git must NEVER save or upload
+# Secret settings (real projects keep passwords in a .env file)
 .env
+.env.*
+# Log files
+*.log
+# Temporary files from editors and operating systems
 *.swp
+*~
 .DS_Store
+Thumbs.db
+# Update packages used by the Windows launcher
+*.tar

@@ -1,0 +1,59 @@
+# =============================================================================
+#  GitHub Actions: automatic tests
+#  -----------------------------------------------------------------------------
+#  After every upload (push) to the main branch, GitHub starts fresh computers
+#  and tests this project. You can also start it by hand: Actions tab ->
+#  "Demo test" -> "Run workflow". Everything is explained in
+#  docs/05-git-and-github.md
+# =============================================================================
+name: Demo test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-files:
+    name: Check the files
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the project
+        uses: actions/checkout@v5
+
+      - name: Check demo.sh for mistakes (ShellCheck)
+        run: shellcheck --severity=warning demo.sh
+
+      - name: Check docker-compose.yml
+        run: docker compose config --quiet
+
+  run-demo:
+    name: Run the whole Docker demo
+    needs: check-files
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Download the project
+        uses: actions/checkout@v5
+
+      - name: Run demo.sh (fast mode, Docker parts + clean up)
+        run: bash demo.sh --fast --no-git
+
+  check-windows-launcher:
+    name: Check the Windows launcher
+    runs-on: windows-latest
+    steps:
+      - name: Download the project
+        uses: actions/checkout@v5
+
+      - name: Check Start-Demo.ps1 with Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile("$PWD\Start-Demo.ps1", [ref]$null, [ref]$errors)
+          if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Host $_.Message }; exit 1 }
+          Write-Host "Start-Demo.ps1 has no mistakes"

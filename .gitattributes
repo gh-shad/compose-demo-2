@@ -1,0 +1,6 @@
+# .gitattributes - tells Git how to store line endings.
+# Linux files (scripts, YAML, docs) must use LF line endings, even when the
+# project is downloaded on Windows. Windows files use CRLF.
+*            text=auto eol=lf
+*.bat        text eol=crlf
+*.ps1        text eol=crlf

@@ -1,0 +1,8 @@
+# Demo run history
+
+Every time `demo.sh` saves the project with Git (Part 11), it adds one line to this table.
+This is a small, real example of how Git tracks a change: `git diff` shows the new line,
+and `git commit` saves it in the history.
+
+| Date and time | Result |
+|---|---|
