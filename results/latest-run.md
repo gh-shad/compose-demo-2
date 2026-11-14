@@ -5,12 +5,12 @@
 
 | | |
 |---|---|
-| **Result** | PASSED: all 12 checks passed |
-| **Date** | 15 Nov 2026, 00:39:49 IST |
+| **Result** | PASSED: all 13 checks passed |
+| **Date** | 15 Nov 2026, 02:35:41 IST |
 | **Where it ran** | Multipass VM 'compose-lab' |
 | **GitHub account** | gh-shad |
 | **Mode** | fast |
-| **Time until this report** | 0 min 44 s |
+| **Time until this report** | 1 min 0 s |
 
 ## Checks
 
@@ -18,16 +18,17 @@
 |---|---|---|
 | 1 | All 4 containers started and are running | PASSED |
 | 2 | The website answered on port 8080 | PASSED |
-| 3 | The worker container reached the database by its name (ping db) | PASSED |
-| 4 | The web container found the database by its name (getent hosts db) | PASSED |
-| 5 | MySQL started and is ready | PASSED |
-| 6 | The Adminer container connected to the database | PASSED |
-| 7 | Saved 2 students in the database | PASSED |
-| 8 | The data survived: both students are still there after down and up | PASSED |
-| 9 | Scaled the worker service to 3 running copies | PASSED |
-| 10 | Clean up: no containers, networks or volumes of this project are left | PASSED |
-| 11 | Safety check: all 40 project files are present and unchanged (SHA-256) | PASSED |
-| 12 | Clean up: the temporary folder was deleted | PASSED |
+| 3 | The website sends security headers and hides the NGINX version | PASSED |
+| 4 | The worker container reached the database by its name (ping db) | PASSED |
+| 5 | The web container found the database by its name (getent hosts db) | PASSED |
+| 6 | MySQL started and is ready | PASSED |
+| 7 | The Adminer container connected to the database | PASSED |
+| 8 | Saved 2 students in the database | PASSED |
+| 9 | The data survived: both students are still there after down and up | PASSED |
+| 10 | Scaled the worker service to 3 running copies | PASSED |
+| 11 | Clean up: no containers, networks or volumes of this project are left | PASSED |
+| 12 | Safety check: all 46 project files are present and unchanged (SHA-256) | PASSED |
+| 13 | Clean up: the temporary folder was deleted | PASSED |
 
 ## Key results
 
@@ -41,7 +42,7 @@
 | Students found after down + up (volume test) | 2 |
 | Worker copies after scaling | compose-demo-worker-1 compose-demo-worker-2 compose-demo-worker-3  |
 | Other containers on this computer | 0 (not touched) |
-| Project files checked with SHA-256 | 40, all unchanged |
+| Project files checked with SHA-256 | 46, all unchanged |
 
 ## Time per part
 
@@ -54,8 +55,8 @@
 | Part 5 - Start the whole app | 1 |
 | Part 6 - Containers talking to each other | 8 |
 | Part 7 - Data survives a restart | 15 |
-| Part 8 - Scaling and logs | 7 |
-| Part 9 - Stop and remove the app | 11 |
+| Part 8 - Scaling and logs | 8 |
+| Part 9 - Stop and remove the app | 10 |
 | Part 10 - Clean up and safety check | 0 |
 
 ## Versions
