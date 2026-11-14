@@ -54,8 +54,9 @@ except that old containers of **this** project from an earlier run are removed, 
 | No old containers of this project | counts containers, networks and volumes with this project's label |
 | The VM's address | `hostname -I` |
 | Git is installed | `git --version` |
-| GitHub is connected | `gh auth status` (if not: asks if you want to log in, see [01 - Setup](01-setup-from-zero.md)) |
-| The `workflow` permission | needed to upload `.github/workflows/`. If missing, asked once |
+| GitHub is connected | Codespaces: automatic. Elsewhere: `gh auth status`. If not signed in, it asks if you want to upload (default: No) |
+| The `workflow` permission | Needed to upload `.github/workflows/`. If missing, asked once (not in Codespaces) |
+| Where it runs | Codespaces, the Multipass VM, a Linux computer, or GitHub Actions (written into the report) |
 
 Then you see a short plan of all parts and **Press Enter to start the demo**.
 
@@ -177,47 +178,50 @@ Full details: [08 - Clean up and safety](08-cleanup-and-safety.md).
 **Checks recorded:** no containers, networks or volumes of this project left · all project
 files present and unchanged (SHA-256) · the temporary folder was deleted.
 
-## Part 11 - Save the project with Git (3 minutes)
+## Part 11 - Save the project and the results with Git (3 minutes)
 
 Every Git command is explained in detail in [05 - Git and GitHub](05-git-and-github.md).
 
 | Command | What it does |
 |---|---|
 | `git --version` | Shows that Git is installed |
-| `git config --global user.name` / `user.email` | Shows (or sets) the name and email written into every commit. If they are not set, the script uses your GitHub name and GitHub's private `noreply` email |
-| `git init -b main` | Turns the folder into a repository (first run only). On later runs: `git log --oneline` instead |
-| `sed -i "s#gh-shad/compose-demo#<you>/<project>#g" README.md docs/...` | Replaces the example links in the documentation with your real GitHub address (only if they are still there) |
+| `git config --global user.name` / `user.email` | Shows (or sets) the name and email written into every commit. If not set, the script uses your GitHub name and GitHub's private `noreply` email |
+| `git init -b main` | Turns the folder into a repository (first run only). Otherwise: `git log --oneline` |
+| `sed -i "s#gh-shad/compose-demo-2#<you>/<project>#g" README.md docs/...` | Only for a new project: puts your real GitHub address into the documentation links |
+| *(write the report)* | Writes `results/latest-run.md`: result, date, where it ran, every check, key results, time per part, versions |
+| `head -14 results/latest-run.md` | Shows the top of the report |
 | `cat .gitignore` | Shows the files that Git must never save |
-| `git status --short` | Shows new (`??`) and changed (`M`) files |
+| `git status --short` | Shows new (`??`), changed (`M`) and deleted (`D`) files |
 | `git add .` | Puts all files into the staging area |
 | `git status --short` | Now `A` (added) and `M` (modified) |
 | `git commit -m "..."` | Creates the save point |
 | `git log --oneline` | Shows the history |
-| `echo "\| <date> \| <n> of <n> checks passed \|" >> docs/demo-runs.md` | Adds one line to the run history |
+| `echo "\| <date> \| <n> of <n> checks passed \| <where> \|" >> results/run-history.md` | Adds one line to the run history |
 | `git diff` | Shows the exact change: one line with `+` |
 | `git commit -am "Record demo run on <date>"` | Saves the change |
 | `git log --oneline` | One more save point at the top |
 
 **Checks recorded:** nothing left unsaved · the Git history (number of commits, newest ID).
 
-## Part 12 - Upload the project to GitHub (3 minutes)
+## Part 12 - Upload the project and the results to GitHub (3 minutes)
 
 | Command | What it does |
 |---|---|
 | `gh --version` | Shows that the GitHub CLI is installed |
-| `gh auth status` | Shows which GitHub account is logged in (the token is hidden with stars) |
-| `gh auth setup-git` | Lets Git use this login for uploads, so it never asks for a password |
-| `git push -u origin main` | **Your existing project:** uploads only the new commits |
-| *or* `gh repo create compose-demo --public --source=. --remote=origin --push` | **First time:** creates the public project on GitHub, connects the folder, and uploads |
-| `gh repo edit ... --description ... --add-topic ...` | Sets the description and topics (search tags) on GitHub |
+| `gh auth status` | Shows which GitHub account is signed in (the key is hidden with stars) |
+| `gh auth setup-git` | Lets Git use this sign-in for uploads (skipped in Codespaces, where Git is already set up) |
+| `git push -u origin main` | **Your own project or fork:** uploads the new commits |
+| *or* `gh repo fork --remote`, `git remote -v`, `git push -u origin main` | **Someone else's project:** creates your fork, shows the connections (`origin` = your fork, `upstream` = the original), then uploads |
+| *or* `gh repo create compose-demo --public --source=. --remote=origin --push` and `gh repo edit --add-topic ...` | **No connection yet (ZIP):** creates your public project, uploads, and adds search topics |
 | `git status` | `Your branch is up to date with 'origin/main'` |
-| `git rev-parse HEAD` and `gh api repos/<you>/<project>/commits/main --jq .sha` | **The proof:** the newest commit ID on this computer and on GitHub. They must be identical |
-| `gh api repos/<you>/<project>/contents --jq '.[].name'` | Lists the files that GitHub now has |
+| `git rev-parse HEAD` and `git ls-remote origin refs/heads/main` | **The proof:** the newest commit on this computer and on GitHub. They must be identical |
+| `gh api repos/<you>/<project>/contents --jq '.[].name'` | Lists the files that GitHub now has (when allowed) |
 | `gh run list --repo <you>/<project> --commit <id>` | Shows that GitHub started the automatic tests |
 
 **Check recorded:** uploaded and verified (both commit IDs match).
 
-How the script decides where to upload, and why it never overwrites anything on GitHub:
+With `--logout-after`, the script signs out of GitHub right after the upload (see [10](10-github-by-hand.md#signing-in-and-signing-out)).
+How the script decides where to upload, and why it never overwrites anything:
 [05 - Git and GitHub](05-git-and-github.md#how-the-script-decides-where-to-upload).
 
 ## The end: summary and final confirmation
@@ -227,8 +231,12 @@ How the script decides where to upload, and why it never overwrites anything on 
    - the title **SUCCESS - THE WHOLE PROCESS IS COMPLETE** (green), or
      **FINISHED WITH n PROBLEM(S)** (red),
    - every recorded check with **[PASSED]** or **[FAILED]**,
-   - if uploaded: the project page, the automatic tests page, the verified commit ID, and the
-     `git clone` command,
+   - the **execution results**: page title, ping result, address of `db`, MySQL version, students
+     before and after the restart, the worker names, and how many files were checked,
+   - the place of the full report: `results/latest-run.md`,
+   - if uploaded: the project page, the **results report** and **run history** on GitHub, the
+     automatic tests page, the verified commit ID, and the `git clone` command,
+   - whether this computer is still signed in to GitHub, and how to sign out (`./demo.sh --logout`),
    - the total time.
 
 The script's **exit code** is `0` when every check passed, and `1` when one failed.

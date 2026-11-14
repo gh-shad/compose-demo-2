@@ -1,13 +1,49 @@
 # 01 - Setup from zero
 
 This guide starts with **nothing installed** and ends with the finished demo.
-Follow the steps in order. Do not skip any step.
+There are two ways. Pick one and follow its steps in order.
+
+| Way | You need | Time to start |
+|---|---|---|
+| **[Way 1: GitHub Codespaces](#way-1-github-codespaces-nothing-to-install)** | A browser and a free GitHub account | About 3 minutes |
+| **[Way 2: Your Windows laptop](#way-2-your-windows-laptop-multipass-vm)** | Windows 10/11 Pro | About 25 minutes the first time |
 
 **Back to:** [README](../README.md) · **Next:** [02 - Concepts](02-concepts.md)
 
 ---
 
-## The big picture
+## Way 1: GitHub Codespaces (nothing to install)
+
+A **codespace** is a free Linux computer in the cloud that opens in your browser. The file
+`.devcontainer/devcontainer.json` tells GitHub to put Docker, Docker Compose, Git and the GitHub
+CLI into it. You are signed in to GitHub there automatically, so there is no login with codes,
+and no key is stored on your own computer.
+
+1. Sign in to <https://github.com> (or click **Sign up** to make a free account).
+2. Open the project page and click **Fork** (top right) → **Create fork**.
+   You now have your own copy at `https://github.com/<your-username>/compose-demo`.
+   *Why?* The results are uploaded into **your** copy. Nobody can upload into another person's project.
+3. On **your fork**, click the green **Code** button → **Codespaces** tab → **Create codespace on main**.
+4. Wait 1 to 2 minutes. An editor (Visual Studio Code) opens in your browser.
+   At the bottom is a **terminal**. It shows: `Welcome! To start the demo, type: ./demo.sh`.
+5. Type `./demo.sh` and press **Enter**. The checks run ("Getting ready"). The first time,
+   the 4 images are downloaded (about 1 minute).
+6. Press **Enter** at **Press Enter to start the demo**. Everything else is automatic.
+7. In Part 5, a message offers to open port 8080 (the website). You can also open the **Ports**
+   tab next to the terminal and click the globe icon of port **8080** (website) or **8081** (Adminer).
+8. At the end, the final screen shows your project link and your results report link.
+9. When you are done: <https://github.com/codespaces> → the three dots next to your codespace →
+   **Stop codespace** (or **Delete**). Free accounts include a monthly amount of free Codespaces time,
+   and a stopped codespace does not use it.
+
+To try the demo **without** a fork, use the **Open in GitHub Codespaces** badge on the README.
+Everything runs, but the upload is skipped (the codespace is not on your own project).
+
+---
+
+## Way 2: Your Windows laptop (Multipass VM)
+
+### The big picture
 
 The demo runs inside a small Linux computer that lives inside your Windows computer.
 This small computer is called a **virtual machine (VM)**. The tool that creates it is
@@ -37,9 +73,9 @@ by the file `cloud-init.yaml`.
 
 ---
 
-## Part A: Prepare Windows (one time, about 15 minutes)
+### Part A: Prepare Windows (one time, about 15 minutes)
 
-### Step 1: Check your Windows edition
+#### Step 1: Check your Windows edition
 
 1. Press the **Windows key + R**. A small "Run" window opens.
 2. Type `winver` and press **Enter**.
@@ -49,7 +85,7 @@ by the file `cloud-init.yaml`.
 Hyper-V is only included in the Pro, Enterprise and Education editions, not in Windows Home.
 On Windows Home, Multipass needs VirtualBox instead. See [Troubleshooting](09-troubleshooting.md).
 
-### Step 2: Turn on Hyper-V
+#### Step 2: Turn on Hyper-V
 
 1. Right-click the **Start** button and choose **Terminal (Admin)** or **Windows PowerShell (Admin)**.
 2. Click **Yes** when Windows asks for permission.
@@ -65,7 +101,7 @@ On Windows Home, Multipass needs VirtualBox instead. See [Troubleshooting](09-tr
 switched off by default. `-Online` means "this running Windows". `-FeatureName Microsoft-Hyper-V`
 names the part. `-All` also turns on the tools that belong to it.
 
-### Step 3: Set your Wi-Fi network to Private
+#### Step 3: Set your Wi-Fi network to Private
 
 1. Open **Settings** → **Network & internet** → **Wi-Fi**.
 2. Click your network's **properties**.
@@ -73,7 +109,7 @@ names the part. `-All` also turns on the tools that belong to it.
 
 **Why?** On a **Public** network, Windows blocks the connection between your laptop and the VM.
 
-### Step 4: Install Multipass
+#### Step 4: Install Multipass
 
 1. Open <https://canonical.com/multipass/install> in your browser.
 2. Download the **Windows** installer and run it.
@@ -81,7 +117,7 @@ names the part. `-All` also turns on the tools that belong to it.
 4. If it asks which "driver" to use, choose **Hyper-V**.
 5. When it is finished, **restart Windows**.
 
-### Step 5: Check that Multipass works
+#### Step 5: Check that Multipass works
 
 1. Open the Start menu, type `powershell`, and press **Enter** (a normal window, not Admin).
 2. Type:
@@ -92,7 +128,7 @@ names the part. `-All` also turns on the tools that belong to it.
 
 3. You should see a line like `multipass  1.x.x`. If you see an error, restart Windows and try again.
 
-### Step 6: Create a free GitHub account (for the upload part)
+#### Step 6: Create a free GitHub account (for the upload part)
 
 1. Open <https://github.com> and click **Sign up**.
 2. Follow the steps and confirm your email address.
@@ -102,9 +138,9 @@ You can skip this step if you only want to watch the demo. Then the script simpl
 
 ---
 
-## Part B: Get the project and run it
+### Part B: Get the project and run it
 
-### Step 7: Download and extract the project
+#### Step 7: Download and extract the project
 
 1. On the project's GitHub page, click the green **Code** button → **Download ZIP**.
    (Or use the ZIP file that you were given.)
@@ -114,7 +150,7 @@ You can skip this step if you only want to watch the demo. Then the script simpl
 
 **Important:** keep all the files together in this one folder. The launcher needs them.
 
-### Step 8: Double-click `Start-Demo.bat`
+#### Step 8: Double-click `Start-Demo.bat`
 
 1. Double-click **Start-Demo.bat**.
 2. If a blue window says **"Windows protected your PC"**, click **More info** → **Run anyway**.
@@ -136,13 +172,13 @@ You can skip this step if you only want to watch the demo. Then the script simpl
    [OK] VM address: 172.x.x.x   (website: http://172.x.x.x:8080   Adminer: http://172.x.x.x:8081)
    ```
 
-### Step 9: The checks ("Getting ready")
+#### Step 9: The checks ("Getting ready")
 
 The demo script now checks everything and prints one `[OK]` line for each check:
 Docker, Docker Compose, the compose file, the images, Git, and a **safety fingerprint** of all
 project files (used again in Part 10).
 
-### Step 10: The one-time GitHub login
+#### Step 10: The one-time GitHub login
 
 The first time, the script asks:
 
@@ -150,6 +186,8 @@ The first time, the script asks:
 Upload the project to GitHub at the end?
 Type y and press Enter for Yes. Just press Enter for No. (No after 30 seconds):
 ```
+
+If you answer **No**, the whole demo still runs, and everything is saved with Git on the VM only.
 
 Type **y** and press **Enter** if you want the upload. Then a box called **ONE-TIME GITHUB LOGIN** appears:
 
@@ -167,7 +205,7 @@ The steps are the same.
 
 **The login is remembered.** The next runs never ask again.
 
-### Step 11: Press Enter, then watch
+#### Step 11: Press Enter, then watch
 
 When you see **Press Enter to start the demo**, press **Enter**. From now on, everything is automatic:
 
@@ -181,7 +219,7 @@ When you see **Press Enter to start the demo**, press **Enter**. From now on, ev
 
 While it runs: **Enter** skips a pause, **p** pauses, **Ctrl+C** stops.
 
-### Step 12: The final confirmation
+#### Step 12: The final confirmation
 
 The last screen looks like this:
 
@@ -196,14 +234,25 @@ The last screen looks like this:
     ...
     [PASSED] Uploaded to GitHub and verified: GitHub has commit 1a2b3c4
 
-  The entire project has been uploaded to GitHub, and the upload was verified.
+  Execution results:
+    Website (web container, port 8080):             answered with the page title 'Docker Compose Demo'
+    Network test: ping db from the worker:          3 packets transmitted, 3 packets received, 0% packet loss
+    ...
+
+  Full report on this computer: results/latest-run.md
+
+  The project and the results have been uploaded to GitHub, and the upload was verified.
     Project page:      https://github.com/<your-username>/compose-demo
+    Results report:    https://github.com/<your-username>/compose-demo/blob/main/results/latest-run.md
     Automatic tests:   https://github.com/<your-username>/compose-demo/actions
+
+  NOTE: This computer is still signed in to GitHub as <your-username>. ...
+  NOTE: On a shared computer, sign out completely with:  ./demo.sh --logout
 ```
 
 ---
 
-## Part C: Every run after the first one
+### Part C: Every run after the first one
 
 1. Double-click **Start-Demo.bat**.
 2. Press **Enter** when it says **Press Enter to start the demo**.
@@ -213,12 +262,12 @@ is updated with the files from your Windows folder (your Git history is kept).
 
 ---
 
-## Part D: Without the launcher (by hand)
+### Part D: Without the launcher (by hand)
 
 You can do everything the launcher does yourself. This is useful on macOS and Linux,
 because `Start-Demo.bat` only works on Windows.
 
-### 1. Create the VM
+#### 1. Create the VM
 
 macOS: install Multipass from <https://canonical.com/multipass/install>.
 Linux: `sudo snap install multipass`.
@@ -236,7 +285,7 @@ multipass launch 24.04 --name compose-lab --cpus 2 --memory 4G --disk 15G --clou
 | `--cloud-init cloud-init.yaml` | Set it up with this file (installs Docker, Git, gh, the images) |
 | `--timeout 1500` | Wait up to 1500 seconds (25 minutes) for the setup |
 
-### 2. Check that the setup is finished
+#### 2. Check that the setup is finished
 
 ```bash
 multipass exec compose-lab -- cloud-init status --wait
@@ -245,24 +294,24 @@ multipass exec compose-lab -- cat /home/ubuntu/LAB-READY.txt
 
 You should see `status: done` and then `COMPOSE LAB READY` with the versions of Docker, Compose, Git and gh.
 
-### 3. Go into the VM and get the project
+#### 3. Go into the VM and get the project
 
 ```bash
 multipass shell compose-lab
-git clone https://github.com/gh-shad/compose-demo.git
+git clone https://github.com/gh-shad/compose-demo-2.git
 cd compose-demo
 ```
 
 `multipass shell` opens a terminal inside the VM. Your prompt changes to `ubuntu@compose-lab:~$`.
 `git clone` downloads the project from GitHub.
 
-### 4. Run the demo
+#### 4. Run the demo
 
 ```bash
 ./demo.sh
 ```
 
-### 5. Find the VM's address for the browser
+#### 5. Find the VM's address for the browser
 
 ```bash
 hostname -I
@@ -273,7 +322,20 @@ in your browser during Parts 5 to 8.
 
 ---
 
-## Part E: Stop or delete the VM
+### Part E: Sign out of GitHub
+
+Signing out on the github.com website does **not** sign out the VM: the GitHub CLI inside the VM
+keeps its own key. To sign out completely, open a terminal in the project folder and type:
+
+```text
+Start-Demo.bat --logout
+```
+
+(Inside the VM: `./demo.sh --logout`.) Then, on a shared computer, also revoke the key on
+<https://github.com/settings/applications> → **GitHub CLI** → **Revoke access**.
+The full explanation: [10 - Signing in and signing out](10-github-by-hand.md#signing-in-and-signing-out).
+
+### Part F: Stop or delete the VM
 
 | Goal | Command (in Windows PowerShell or a macOS/Linux terminal) |
 |---|---|

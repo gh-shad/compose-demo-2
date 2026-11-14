@@ -21,9 +21,14 @@
 #           ./demo.sh --git-only  clean up + Git + GitHub only (Parts 10-12)
 #           ./demo.sh --no-push   use Git, but do not upload to GitHub
 #           ./demo.sh --push      log in to GitHub without asking first
+#           ./demo.sh --logout    sign out of GitHub on this computer, completely
+#           ./demo.sh --logout-after   upload, then sign out (for shared computers)
 #           ./demo.sh --help
 #
 #  While it runs:  Enter = skip the current pause    p = pause    Ctrl+C = stop
+#  Results of every run: results/latest-run.md (full report), results/run-history.md
+#  Runs on: GitHub Codespaces, the Multipass VM (Start-Demo.bat), any Linux with Docker,
+#           and GitHub Actions (automatic tests)
 #  New GitHub repository name: compose-demo  (change with  REPO_NAME=my-name ./demo.sh)
 #  Full documentation: README.md and the docs/ folder.
 # =============================================================================
@@ -42,6 +47,9 @@ DO_GIT=1               # Part 11
 DO_PUSH=1              # Part 12
 FORCE_PUSH=0           # --push: log in to GitHub without asking
 SETUP_ONLY=0
+LOGOUT_ONLY=0          # --logout
+LOGOUT_AFTER=0         # --logout-after
+LOGGED_OUT=0
 IMPORT_FILE=""         # --import-update FILE (used by the Windows launcher)
 REPO_NAME="${REPO_NAME:-compose-demo}"
 MYSQL_WAIT_MAX=240             # seconds to wait for MySQL before giving up
@@ -60,10 +68,12 @@ while [ $# -gt 0 ]; do
     --git-only)  DO_DOCKER=0 ;;
     --no-push)   DO_PUSH=0 ;;
     --push)      FORCE_PUSH=1 ;;
+    --logout)    LOGOUT_ONLY=1 ;;
+    --logout-after) LOGOUT_AFTER=1 ;;
     --import-update)
       shift; IMPORT_FILE="${1:-}"
       [ -z "$IMPORT_FILE" ] && { echo "--import-update needs a file name"; exit 1; } ;;
-    --help|-h)   sed -n '2,29p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --help|-h)   sed -n '2,35p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "Unknown option: $1   (see ./demo.sh --help)"; exit 1 ;;
   esac
   shift
@@ -78,6 +88,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR" || exit 1
 PROJECT="$(basename "$SCRIPT_DIR" | tr '[:upper:]' '[:lower:]')"
 START_TIME=$(date +%s)
+
+# Where is the script running?
+IN_CODESPACES=0; [ "${CODESPACES:-}" = "true" ] && IN_CODESPACES=1
+IN_CI=0;         [ "${GITHUB_ACTIONS:-}" = "true" ] && IN_CI=1
+[ "$LOGOUT_ONLY" = 1 ] && [ "$MODE" = "auto" ] && MODE="fast"   # signing out needs no pauses
+[ "$LOGOUT_ONLY" = 1 ] && TYPE_DELAY=0
 
 # ----------------------------------------------------------------------------
 # Colours (switched off automatically when the output is not a terminal)
@@ -115,7 +131,14 @@ banner() {
   printf '%s\n' "${B}${colour}+${bar}+${R}"
 }
 
+CUR_PART=""; CUR_PART_START=0; PART_TIMES=()
+end_part_timer() {
+  [ -n "$CUR_PART" ] && PART_TIMES+=("$CUR_PART|$(( $(date +%s) - CUR_PART_START ))")
+  CUR_PART=""
+}
 part() {   # part <number> <title> <time>
+  end_part_timer
+  CUR_PART="Part $1 - $2"; CUR_PART_START=$(date +%s)
   if [ "$MODE" != "fast" ] && [ -t 1 ]; then clear; fi
   echo
   line
@@ -254,6 +277,21 @@ if ! [ -t 0 ] || ! [ -t 1 ]; then EXEC_T=(-T); fi
 IP="localhost"
 server_ip() { local ip; ip=$(hostname -I 2>/dev/null | awk '{print $1}'); echo "${ip:-localhost}"; }
 
+app_url() {   # app_url <port> : the address to open in the browser
+  if [ "$IN_CODESPACES" = 1 ] && [ -n "${CODESPACE_NAME:-}" ]; then
+    echo "https://${CODESPACE_NAME}-$1.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-app.github.dev}"
+  else
+    echo "http://${IP}:$1"
+  fi
+}
+
+where_running() {
+  if [ "$IN_CODESPACES" = 1 ]; then echo "GitHub Codespaces"
+  elif [ "$IN_CI" = 1 ]; then echo "GitHub Actions (automatic test)"
+  elif [ "$(hostname 2>/dev/null)" = "compose-lab" ]; then echo "Multipass VM 'compose-lab'"
+  else echo "Linux computer '$(hostname 2>/dev/null)'"; fi
+}
+
 mysql_ready() {
   # Ready when the REAL server (port 3306) is up and a test query works.
   # (The first time, MySQL runs a temporary setup server on port 0 first.)
@@ -296,7 +334,7 @@ trap on_interrupt INT
 # --import-update FILE : used by the Windows launcher (Start-Demo.ps1).
 # Copies the newest project files from a .tar package into this folder.
 #  - never touches the .git folder (your Git history)
-#  - keeps docs/demo-runs.md (your run history) if it already exists
+#  - keeps your results (results/*.md, and the older docs/demo-runs.md) if they already exist
 #  - before replacing a file that has changes not saved in Git, makes a backup
 #    in ~/compose-demo-backups/<date-time>/
 # ----------------------------------------------------------------------------
@@ -314,7 +352,7 @@ import_update() {
     rel="${f#"$stage"/}"
     case "$rel" in .git|.git/*) continue ;; esac
     [ "$rel" = "demo.sh" ] && continue   # already copied separately by the launcher (it is running now)
-    if [ "$rel" = "docs/demo-runs.md" ] && [ -f "$rel" ]; then continue; fi
+    case "$rel" in results/latest-run.md|results/run-history.md|docs/demo-runs.md) [ -f "$rel" ] && continue ;; esac
     if [ -f "$rel" ] && ! cmp -s "$f" "$rel"; then
       local unsaved=1
       if [ $has_git = 1 ] && git ls-files --error-unmatch -- "$rel" >/dev/null 2>&1 \
@@ -386,6 +424,148 @@ github_add_workflow_scope() {
   gh_has_workflow_scope
 }
 
+# ----------------------------------------------------------------------------
+# Execution results: key facts are collected while the demo runs and written
+# to results/latest-run.md (the full report) at the end.
+# ----------------------------------------------------------------------------
+FACTS=()
+VERSIONS=()
+fact() { FACTS+=("$1|$2"); }
+
+origin_owner() {   # owner of the GitHub project that 'origin' points to (empty if none)
+  local url p
+  url=$(git remote get-url origin 2>/dev/null) || return 0
+  p="${url%.git}"; p="${p%/*}"; echo "${p##*[/:]}"
+}
+
+md_escape() { printf '%s' "$1" | sed 's/|/\\|/g'; }
+
+write_report() {   # writes results/latest-run.md
+  mkdir -p results
+  local f="results/latest-run.md" nok=${#RESULTS_OK[@]} nfail=${#RESULTS_FAIL[@]}
+  local total=$(( nok + nfail )) secs=$(( $(date +%s) - START_TIME )) status r item n=0
+  if [ "$nfail" -eq 0 ]; then status="PASSED: all $total checks passed"; else status="FAILED: $nfail of $total checks failed"; fi
+  {
+    echo "# Latest demo run"
+    echo
+    echo "> This file is written by \`demo.sh\` every time the demo runs."
+    echo "> It shows the **real results** of the most recent run. Older runs: [run-history.md](run-history.md)."
+    echo
+    echo "| | |"
+    echo "|---|---|"
+    echo "| **Result** | $status |"
+    echo "| **Date** | $(date '+%d %b %Y, %H:%M:%S %Z') |"
+    echo "| **Where it ran** | $(where_running) |"
+    echo "| **GitHub account** | ${GH_USER:-not connected} |"
+    echo "| **Mode** | $MODE |"
+    echo "| **Time until this report** | $((secs / 60)) min $((secs % 60)) s |"
+    echo
+    echo "## Checks"
+    echo
+    echo "| # | Check | Result |"
+    echo "|---|---|---|"
+    for r in "${RESULTS_OK[@]}";   do n=$((n + 1)); echo "| $n | $(md_escape "$r") | PASSED |"; done
+    for r in "${RESULTS_FAIL[@]}"; do n=$((n + 1)); echo "| $n | $(md_escape "$r") | **FAILED** |"; done
+    echo
+    if [ ${#FACTS[@]} -gt 0 ]; then
+      echo "## Key results"
+      echo
+      echo "| What | Result |"
+      echo "|---|---|"
+      for item in "${FACTS[@]}"; do echo "| $(md_escape "${item%%|*}") | $(md_escape "${item#*|}") |"; done
+      echo
+    fi
+    if [ ${#PART_TIMES[@]} -gt 0 ]; then
+      echo "## Time per part"
+      echo
+      echo "| Part | Seconds |"
+      echo "|---|---|"
+      for item in "${PART_TIMES[@]}"; do echo "| $(md_escape "${item%|*}") | ${item##*|} |"; done
+      echo
+    fi
+    echo "## Versions"
+    echo
+    echo "| Tool | Version |"
+    echo "|---|---|"
+    for item in "${VERSIONS[@]}"; do echo "| $(md_escape "${item%%|*}") | $(md_escape "${item#*|}") |"; done
+    echo
+    echo "## Run it yourself"
+    echo
+    echo "Fork the project on GitHub, open it in GitHub Codespaces (or use \`Start-Demo.bat\` on Windows),"
+    echo "then run \`./demo.sh\`. Your own results will appear in this file in your fork."
+    echo "See the [README](../README.md) for every step."
+  } > "$f"
+}
+
+# ----------------------------------------------------------------------------
+# Signing out of GitHub completely on this computer (--logout / --logout-after)
+# ----------------------------------------------------------------------------
+github_logout() {
+  echo
+  box "$CYAN" "SIGNING OUT OF GITHUB COMPLETELY" \
+    "Signing out on the github.com website does NOT sign out this computer. Three separate places can keep you signed in:" \
+    "1. The GitHub CLI (gh) keeps its own secret key, called a token, in a file on this computer (~/.config/gh/hosts.yml)." \
+    "2. Git was told to use that key for uploads. 'gh auth setup-git' wrote this into ~/.gitconfig." \
+    "3. GitHub itself still accepts the key until you cancel ('revoke') it on the website." \
+    "The next commands clean up places 1 and 2 on this computer. Place 3 is a few clicks on github.com, shown at the end."
+  pause 6
+
+  if [ "$IN_CODESPACES" = 1 ]; then
+    explain "This is a GitHub Codespace. Here you are signed in with a temporary key that GitHub creates for this codespace only. It stops working when the codespace is stopped or deleted (github.com/codespaces). There is nothing to remove here."
+    return 0
+  fi
+
+  local accounts a
+  if command -v gh >/dev/null 2>&1; then
+    accounts=$(gh auth status --hostname github.com 2>&1 | sed -n -e 's/.*Logged in to github\.com account \([^ ]*\).*/\1/p' -e 's/.*Logged in to github\.com as \([^ ]*\).*/\1/p' | sort -u)
+    if [ -n "$accounts" ]; then
+      for a in $accounts; do
+        step "'gh auth logout' deletes the saved key of the GitHub account '$a' from this computer." \
+             "gh auth logout --hostname github.com --user $a" gh auth logout --hostname github.com --user "$a"
+      done
+    elif gh auth status >/dev/null 2>&1; then
+      step "'gh auth logout' deletes the saved key from this computer." \
+           "gh auth logout --hostname github.com" gh auth logout --hostname github.com
+    else
+      ok "The GitHub CLI (gh) is not signed in on this computer"
+    fi
+  fi
+
+  if git config --global --get-regexp '^credential\.https://(gist\.)?github\.com\.' >/dev/null 2>&1; then
+    step "Now Git's settings. 'git config --remove-section' deletes the lines that tell Git to use gh's key for github.com (and for gist.github.com)." \
+         "git config --global --remove-section credential.https://github.com ; git config --global --remove-section credential.https://gist.github.com" \
+         sh -c 'git config --global --remove-section credential.https://github.com 2>/dev/null; git config --global --remove-section credential.https://gist.github.com 2>/dev/null; true'
+  else
+    ok "Git has no saved GitHub sign-in settings"
+  fi
+
+  if [ -f "$HOME/.git-credentials" ] && grep -q 'github\.com' "$HOME/.git-credentials"; then
+    step "The file ~/.git-credentials keeps saved GitHub passwords as plain text. 'sed' deletes only the github.com lines from it." \
+         "sed -i '/github\\.com/d' ~/.git-credentials" sed -i '/github\.com/d' "$HOME/.git-credentials"
+  fi
+  if [ -n "${GH_TOKEN:-}${GITHUB_TOKEN:-}" ]; then
+    note "A GH_TOKEN or GITHUB_TOKEN environment variable is set. It keeps gh signed in."
+    note "Remove that line from ~/.bashrc or ~/.profile, then open a new terminal."
+  fi
+  rm -f "$URL_FILE" 2>/dev/null
+
+  run "gh auth status" sh -c 'gh auth status 2>&1 || true'
+  if ! gh_logged_in && ! git config --global --get-regexp '^credential\.https://(gist\.)?github\.com\.' >/dev/null 2>&1; then
+    LOGGED_OUT=1
+    pass_check "Signed out of GitHub on this computer (GitHub CLI and Git)"
+  else
+    fail_check "Signed out of GitHub on this computer (GitHub CLI and Git)"
+  fi
+  echo
+  box "$YELLOW" "LAST STEP, ON THE GITHUB WEBSITE (recommended on shared computers)" \
+    "To cancel the key on GitHub itself: open https://github.com/settings/applications , click 'GitHub CLI', then 'Revoke access'. This cancels the GitHub CLI keys on ALL your devices." \
+    "On a shared computer, also sign out of github.com in the browser." \
+    "If you ever used Git directly on Windows, Windows keeps GitHub passwords in the Credential Manager: Control Panel, Credential Manager, Windows Credentials, remove 'git:https://github.com'."
+}
+
+# ----------------------------------------------------------------------------
+# Re-create the project files if they are missing
+# ----------------------------------------------------------------------------
 create_files_if_missing() {
   if [ ! -f docker-compose.yml ]; then
     info "docker-compose.yml was missing, so it was created again"
@@ -517,18 +697,24 @@ IGNORE
     printf '# Docker Compose Demo\n\nRun the demo with: ./demo.sh\n' > README.md
   fi
 
-  if [ ! -f docs/demo-runs.md ]; then
-    mkdir -p docs
-    cat > docs/demo-runs.md <<'RUNS'
-# Demo run history
-
-Every time `demo.sh` saves the project with Git (Part 11), it adds one line to this table.
-This is a small, real example of how Git tracks a change: `git diff` shows the new line,
-and `git commit` saves it in the history.
-
-| Date and time | Result |
-|---|---|
-RUNS
+  mkdir -p results
+  if [ ! -f results/run-history.md ]; then
+    {
+      echo "# Run history"
+      echo
+      echo "Every time \`demo.sh\` saves the project with Git (Part 11), it adds one line to this table."
+      echo "It is a small, real example of how Git tracks a change: \`git diff\` shows the new line,"
+      echo "and \`git commit\` saves it. The full report of the newest run is in [latest-run.md](latest-run.md)."
+      echo
+      echo "| Date and time | Result | Where it ran |"
+      echo "|---|---|---|"
+      # older versions of this project kept the history in docs/demo-runs.md: move those lines here
+      if [ -f docs/demo-runs.md ]; then grep -E '^\| [0-9]' docs/demo-runs.md; fi
+    } > results/run-history.md
+    [ -f docs/demo-runs.md ] && rm -f docs/demo-runs.md && info "Moved the run history from docs/demo-runs.md to results/run-history.md"
+  fi
+  if [ ! -f results/latest-run.md ]; then
+    printf '# Latest demo run\n\nNo run yet. Run `./demo.sh` and this file will show the results.\n' > results/latest-run.md
   fi
 }
 
@@ -627,7 +813,23 @@ preflight() {
     fi
   fi
 
-  if [ "$DO_PUSH" = 1 ]; then
+  [ "$IN_CI" = 1 ] && DO_PUSH=0   # the automatic tests never upload anything
+
+  if [ "$DO_PUSH" = 1 ] && [ "$IN_CODESPACES" = 1 ]; then
+    GH_USER="${GITHUB_USER:-}"
+    GH_NAME="$(git config --global user.name 2>/dev/null)"; [ -z "$GH_NAME" ] && GH_NAME="$GH_USER"
+    local owner; owner=$(origin_owner)
+    if [ -z "$GH_USER" ]; then
+      info "Could not find your GitHub name in this codespace, so the upload is skipped."
+      DO_PUSH=0
+    elif [ -n "$owner" ] && [ "$owner" != "$GH_USER" ]; then
+      note "This codespace was opened on $owner's project, not on your own copy, so the upload is skipped."
+      note "To upload your results: on GitHub click Fork, then open a codespace on YOUR fork."
+      DO_PUSH=0
+    else
+      ok "GitHub account: ${B}${GH_USER}${R}  (signed in through this codespace, no login needed)"
+    fi
+  elif [ "$DO_PUSH" = 1 ]; then
     if ! command -v gh >/dev/null 2>&1; then
       fail "The GitHub CLI (gh) is not installed, so the upload to GitHub will be skipped."
       note "Install it with: sudo apt install -y gh"
@@ -667,6 +869,17 @@ preflight() {
       fi
     fi
   fi
+
+  # versions for the results report
+  local osname=""
+  [ -r /etc/os-release ] && osname=$(. /etc/os-release && echo "${PRETTY_NAME:-Linux}")
+  VERSIONS=("Operating system|${osname:-Linux}")
+  if [ "$DO_DOCKER" = 1 ]; then
+    VERSIONS+=("Docker Engine|$(dk version --format '{{.Server.Version}}' 2>/dev/null)" "Docker Compose|$(dc version --short 2>/dev/null)")
+  fi
+  command -v git >/dev/null 2>&1 && VERSIONS+=("Git|$(git --version | awk '{print $3}')")
+  command -v gh  >/dev/null 2>&1 && VERSIONS+=("GitHub CLI|$(gh --version | head -1 | awk '{print $3}')")
+  ok "Running on: $(where_running)"
 }
 WORKFLOW_EXCLUDED=0
 
@@ -688,8 +901,8 @@ start_screen() {
   echo
   if [ "$DO_DOCKER" = 1 ]; then
     printf '%s\n' "  Browser pages (they work during Parts 5 to 8):"
-    printf '%s\n' "    Website:  http://${IP}:8080"
-    printf '%s\n' "    Adminer:  http://${IP}:8081"
+    printf '%s\n' "    Website:  $(app_url 8080)"
+    printf '%s\n' "    Adminer:  $(app_url 8081)"
     echo
   fi
   case "$MODE" in
@@ -843,8 +1056,9 @@ part5() {
        "curl -s http://localhost:8080 -o $TMP_DIR/page.html && grep -o '<title>.*</title>' $TMP_DIR/page.html" \
        sh -c "curl -s --max-time 5 http://localhost:8080 -o '$TMP_DIR/page.html' && grep -o '<title>.*</title>' '$TMP_DIR/page.html'"
   verify "The website answered on port 8080" grep -q "<title>Docker Compose Demo</title>" "$TMP_DIR/page.html"
+  fact "Website (web container, port 8080)" "answered with the page title '$(sed -n 's/.*<title>\(.*\)<\/title>.*/\1/p' "$TMP_DIR/page.html" | head -1)'"
   echo
-  link "The website in the browser:  http://${IP}:8080"
+  link "The website in the browser:  $(app_url 8080)"
   notice "This page comes from the NGINX container. It is my own page, which the compose file put inside the container."
 }
 
@@ -857,6 +1071,7 @@ part6() {
   if step "'docker compose exec' runs a command inside a container that is already running. I ask the worker container to 'ping' the database. Ping sends small test messages and waits for replies. I use only the name 'db', not an IP address." \
        "docker compose exec worker ping -c 3 db" dc exec "${EXEC_T[@]}" worker ping -c 3 db; then
     pass_check "The worker container reached the database by its name (ping db)"
+    fact "Network test: ping db from the worker" "$(dc exec -T worker ping -c 3 -q db 2>/dev/null | grep 'packets' | head -1)"
   else
     fail_check "The worker container reached the database by its name (ping db)"
   fi
@@ -865,6 +1080,7 @@ part6() {
   if step "The NGINX image is kept very small and has no ping tool, so for the web container I use 'getent hosts'. It asks the phone book: what is the address of 'db'?" \
        "docker compose exec web getent hosts db" dc exec "${EXEC_T[@]}" web getent hosts db; then
     pass_check "The web container found the database by its name (getent hosts db)"
+    fact "Address of 'db' on app-network" "$(dc exec -T web getent hosts db 2>/dev/null | awk '{print $1}' | head -1)"
   else
     fail_check "The web container found the database by its name (getent hosts db)"
   fi
@@ -873,6 +1089,7 @@ part6() {
   if step "MySQL needs some time to start the first time, because it sets up its files. The script now waits until the database is ready." \
        "(waiting for MySQL)" wait_for_mysql; then
     pass_check "MySQL started and is ready"
+    fact "MySQL version" "$(dc exec -T db mysql -uroot -pexamplepassword -N -e 'SELECT VERSION();' 2>/dev/null | tr -d '[:space:]')"
   else
     fail_check "MySQL started and is ready"
   fi
@@ -889,7 +1106,7 @@ part6() {
   fi
 
   echo
-  link "Adminer in the browser:  http://${IP}:8081"
+  link "Adminer in the browser:  $(app_url 8081)"
   printf '      %-12s %s\n' "System"   "MySQL" "Server" "db" "Username" "root" "Password" "examplepassword" "Database" "(leave empty)"
   echo
   explain "In the browser, Adminer shows the database as a web page. To log in, the server name is just 'db'. Adminer reaches the database over the private network."
@@ -914,6 +1131,7 @@ part7() {
        "docker compose exec db mysql -uroot -pexamplepassword -e \"SELECT * FROM college.students;\"" \
        dc exec "${EXEC_T[@]}" db mysql -uroot -pexamplepassword -e "SELECT * FROM college.students;"
   verify "Saved 2 students in the database" test "$(students_count)" = "2"
+  fact "Students saved before the restart" "$(students_count)"
   notice "The two students are saved in the database."
 
   step "Now I delete ALL the containers. 'docker compose down' stops and removes every container and the network." \
@@ -936,6 +1154,7 @@ part7() {
        "docker compose exec db mysql -uroot -pexamplepassword -e \"SELECT * FROM college.students;\"" \
        dc exec "${EXEC_T[@]}" db mysql -uroot -pexamplepassword -e "SELECT * FROM college.students;"
   verify "The data survived: both students are still there after down and up" test "$(students_count)" = "2"
+  fact "Students found after down + up (volume test)" "$(students_count)"
   notice "The containers are new, but the data is still here. It was kept safe in the db-data volume, outside the containers."
 }
 
@@ -950,6 +1169,7 @@ part8() {
   step "Let us look at the list again." \
        "docker compose ps" dc ps
   verify "Scaled the worker service to 3 running copies" test "$(dc ps --status running -q worker | wc -l)" -eq 3
+  fact "Worker copies after scaling" "$(dc ps --status running --format '{{.Name}}' worker 2>/dev/null | sort | tr '\n' ' ')"
   notice "Now there are three workers: worker-1, worker-2 and worker-3. This is how an application handles more work: run more copies."
 
   info "Waiting a few seconds, so the workers can print some messages"
@@ -1003,6 +1223,7 @@ part10() {
          dk image ls --filter reference=nginx:latest --filter reference=mysql:8.4 --filter reference=adminer:latest --filter reference=busybox:latest
     local others; others=$(dk ps -aq | wc -l)
     info "Other containers on this computer: $others (not touched by this script)"
+    fact "Other containers on this computer" "$others (not touched)"
     notice "The images stay. To remove them too, you could run 'docker image rm nginx:latest mysql:8.4 adminer:latest busybox:latest', but then the next run must download them again."
   elif [ "$KEEP" = 1 ]; then
     note "--keep was used, so the containers keep running and the Docker clean up is skipped."
@@ -1013,6 +1234,7 @@ part10() {
   if step "Safety check. At the start, the script made a 'fingerprint' of every project file with 'sha256sum'. A fingerprint is a long number calculated from the content of a file. If even one letter changes, the fingerprint changes. Now I check all files again: are they all still there and unchanged? '--quiet' means: print only problems." \
        "sha256sum --check --quiet $TMP_DIR/fingerprint.sha256" sha256sum --check --quiet "$TMP_DIR/fingerprint.sha256"; then
     pass_check "Safety check: all $nfiles project files are present and unchanged (SHA-256)"
+    fact "Project files checked with SHA-256" "$nfiles, all unchanged"
     notice "No problems were printed. All $nfiles project files are safe."
   else
     fail_check "Safety check: all $nfiles project files are present and unchanged (SHA-256)"
@@ -1066,7 +1288,7 @@ same_history() {   # same_history owner/name : is GitHub's main branch part of m
   return $rc
 }
 
-resolve_target() {   # decide where to upload: TARGET_MODE = push | connect | create
+resolve_target() {   # decide where to upload: TARGET_MODE = push | fork | connect | create
   TARGET_NAME="$REPO_NAME"; TARGET_MODE="create"; FOREIGN=""
   local url p owner name
   url=$(git remote get-url origin 2>/dev/null)
@@ -1076,6 +1298,7 @@ resolve_target() {   # decide where to upload: TARGET_MODE = push | connect | cr
       TARGET_NAME="$name"; TARGET_MODE="push"; return 0     # my existing repository
     fi
     FOREIGN="$owner/$name"                                  # downloaded from someone else
+    TARGET_NAME="$name"; TARGET_MODE="fork"; return 0       # -> make my own fork of it
   fi
   if gh repo view "$GH_USER/$TARGET_NAME" >/dev/null 2>&1; then
     if same_history "$GH_USER/$TARGET_NAME"; then TARGET_MODE="connect"; return 0; fi
@@ -1085,8 +1308,8 @@ resolve_target() {   # decide where to upload: TARGET_MODE = push | connect | cr
 }
 
 part11() {
-  part 11 "Save the project with Git" "3 min"
-  explain "The application works, and everything is clean. Now I save my work properly and share it. For this I use two tools." \
+  part 11 "Save the project and the results with Git" "3 min"
+  explain "The application works, and everything is clean. Now I save my work and the results of this run properly, so I can share them. For this I use two tools." \
           "Git is a 'version control' tool. Every time I 'commit', Git saves a snapshot of all my files, like a save point in a game. Later I can see what changed, when, and by whom, and I can go back to any older version." \
           "GitHub is a website that keeps Git projects online. gh, the GitHub CLI, is GitHub's own command-line tool. It logs in to GitHub, creates the online project, and uploads it, all from this terminal."
 
@@ -1101,7 +1324,7 @@ part11() {
          sh -c 'git config --global user.name; git config --global user.email'
   else
     if [ -n "$GH_USER" ]; then
-      name="$GH_NAME"; email="${GH_ID}+${GH_USER}@users.noreply.github.com"
+      name="$GH_NAME"; email="${GH_ID:+$GH_ID+}${GH_USER}@users.noreply.github.com"
       explain "Git writes a name and an email into every commit. The script takes them from my GitHub account. It uses GitHub's private 'noreply' email address, so my real email is never shown in public."
     else
       name="${GIT_NAME:-Docker Compose Demo}"; email="${GIT_EMAIL:-demo@example.com}"
@@ -1146,6 +1369,11 @@ part11() {
     sed -i '\#^\.github/workflows/$#d' .git/info/exclude   # the permission is there now: include the tests again
   fi
 
+  step "The script writes the results of this run into a report: results/latest-run.md. It lists every check, the key results, the time of each part and the versions. This report is part of what gets saved and uploaded." \
+       "(write the report: results/latest-run.md)" write_report
+  step "'head' shows the first lines of a file. Here: the top of the new report." \
+       "head -14 results/latest-run.md" head -14 results/latest-run.md
+
   step "Step 2: the .gitignore file is a list of files that Git must NOT save, for example log files, or the .env file where real projects keep passwords. 'cat' shows the list." \
        "cat .gitignore" cat .gitignore
 
@@ -1172,14 +1400,16 @@ part11() {
        "git log --oneline" git --no-pager log --oneline -5
 
   # --- make a change and track it ---------------------------------------------
-  explain "Step 6: Git notices every change I make. Let me add one line to the run history file, docs/demo-runs.md, and then ask Git what changed."
+  explain "Step 6: Git notices every change I make. Let me add one line to the run history file, results/run-history.md, and then ask Git what changed."
   local stamp total
   stamp=$(date '+%d %b %Y, %H:%M:%S')
   total=$(( ${#RESULTS_OK[@]} + ${#RESULTS_FAIL[@]} ))
-  local entry="| $stamp | ${#RESULTS_OK[@]} of $total checks passed |"
+  local entry where
+  where=$(where_running)
+  entry="| $stamp | ${#RESULTS_OK[@]} of $total checks passed | $where |"
   step "'echo ... >> file' adds one new line at the end of a file. This line records today's run and its result." \
-       "echo \"$entry\" >> docs/demo-runs.md" \
-       sh -c 'printf "%s\n" "$1" >> docs/demo-runs.md' _ "$entry"
+       "echo \"$entry\" >> results/run-history.md" \
+       sh -c 'printf "%s\n" "$1" >> results/run-history.md' _ "$entry"
   step "'git diff' shows exactly what changed inside the files since the last save point." \
        "git diff" git --no-pager diff
   notice "The line that starts with a plus (+) is the new line. (A line that starts with a minus (-) would be a removed line.)"
@@ -1201,47 +1431,73 @@ create_repo() {   # create_repo <name>
   git remote remove origin >/dev/null 2>&1
   step "'gh repo create' does three jobs in one command: it creates a new public project called '$name' on GitHub, connects this folder to it (the connection is called 'origin'), and uploads all my save points ('--push')." \
        "gh repo create $name --public --source=. --remote=origin --push --description \"...\"" \
-       gh repo create "$name" --public --source=. --remote=origin --push --description "$desc"
+       gh repo create "$name" --public --source=. --remote=origin --push --description "$desc" || return 1
+  step "'gh repo edit --add-topic' adds 'topics' to the new project. Topics are tags that help people find it when they search on GitHub." \
+       "gh repo edit $GH_USER/$name --add-topic docker,docker-compose,mysql,nginx,git,github-cli,beginner-friendly,tutorial" \
+       gh repo edit "$GH_USER/$name" --add-topic docker,docker-compose,mysql,nginx,adminer,git,github-cli,beginner-friendly,tutorial,devops
+  return 0
 }
 
+origin_repo_name() { local u; u=$(git remote get-url origin 2>/dev/null); u="${u%.git}"; echo "${u##*/}"; }
+
 part12() {
-  part 12 "Upload the project to GitHub" "3 min"
+  part 12 "Upload the project and the results to GitHub" "3 min"
   if [ "$DO_PUSH" = 0 ]; then
-    explain "In this part, the project is uploaded to GitHub. This time it is skipped (see the notes at the start), so the project is saved only on this computer." \
-            "To upload it, run './demo.sh --setup' once to log in to GitHub, and then './demo.sh --git-only'."
+    if [ "$IN_CODESPACES" = 1 ]; then
+      explain "In this part, the project and the results are uploaded to GitHub. This time it is skipped (see the notes at the start), so everything is saved only in this codespace." \
+              "To upload: open the original project on GitHub, click Fork, open a codespace on YOUR fork, and run ./demo.sh there."
+    else
+      explain "In this part, the project and the results are uploaded to GitHub. This time it is skipped (see the notes at the start), so everything is saved only on this computer." \
+              "To upload later: run './demo.sh --setup' once to connect GitHub, then './demo.sh --git-only'. Or follow the steps in docs/10-github-by-hand.md."
+    fi
     return 0
   fi
 
-  explain "Now I upload the project to GitHub. Uploading is called 'push': my computer pushes the save points to GitHub. The opposite is 'pull': downloading from GitHub to my computer."
+  explain "Now I upload the project and my results to GitHub. Uploading is called 'push': my computer pushes the save points to GitHub. The opposite is 'pull': downloading from GitHub to my computer."
   step "'gh --version' shows that the GitHub CLI is installed." "gh --version" sh -c 'gh --version | head -1'
-  step "'gh auth status' shows which GitHub account this computer is logged in to. The secret token is hidden with stars." \
+  step "'gh auth status' shows which GitHub account is signed in. The secret key (token) is hidden with stars." \
        "gh auth status" gh auth status
-  step "'gh auth setup-git' tells Git to use this GitHub login when it uploads. So Git never asks for a password." \
-       "gh auth setup-git" gh auth setup-git
-
-  if [ -n "$FOREIGN" ]; then
-    explain "This folder was downloaded from another person's GitHub project ($FOREIGN). Nobody can upload to someone else's project, so the script keeps that link under the name 'upstream' and creates my own copy."
-    if git remote get-url upstream >/dev/null 2>&1; then
-      run "git remote remove origin" git remote remove origin
-    else
-      step "'git remote rename origin upstream' keeps the link to the original project, under a new name." \
-           "git remote rename origin upstream" git remote rename origin upstream
-    fi
+  if [ "$IN_CODESPACES" = 1 ]; then
+    info "In a GitHub Codespace, Git is already set up to upload to your own repository. No password is needed."
+  else
+    step "'gh auth setup-git' tells Git to use this GitHub sign-in when it uploads, so Git never asks for a password." \
+         "gh auth setup-git" gh auth setup-git
   fi
 
   local name="$TARGET_NAME" pushed=0
   case "$TARGET_MODE" in
     push)
-      if step "This folder is already connected to my GitHub project '$name' (the connection is called 'origin'). 'git push' uploads only the new save points." \
+      if step "This folder is already connected to my own GitHub project '$name' (the connection is called 'origin'). 'git push' uploads only the new save points." \
               "git push -u origin main" git push -u origin main; then
         pushed=1
       else
         note "GitHub did not accept the push into '$name' (GitHub has changes that this computer does not have)."
         note "To be safe, nothing on GitHub is overwritten. The script uploads to a new project name instead."
+        note "(To combine both versions yourself, see 'git pull' in docs/10-github-by-hand.md.)"
         name=$(free_repo_name) || { fail_check "Upload to GitHub"; return 1; }
       fi ;;
+    fork)
+      explain "This folder was downloaded from another person's project: $FOREIGN. Nobody can upload into someone else's project. The normal GitHub way is a 'fork': my own copy of the project on GitHub, which stays linked to the original, so its owner can see it."
+      if step "'gh repo fork --remote' creates the fork in my GitHub account. It renames the old connection 'origin' to 'upstream' (the original project), and connects my fork as the new 'origin'. If I already have this fork, it simply uses it." \
+              "gh repo fork --remote" gh repo fork --remote; then
+        name=$(origin_repo_name)
+        step "'git remote -v' lists the connections: 'origin' is my fork, 'upstream' is the original project." \
+             "git remote -v" git remote -v
+        if step "'git push' uploads my new save points (with my results) into my fork." \
+                "git push -u origin main" git push -u origin main; then
+          pushed=1
+        else
+          note "My fork on GitHub has changes that this computer does not have. Nothing is overwritten: the script uploads to a new project name instead."
+          git remote remove origin >/dev/null 2>&1
+          name=$(free_repo_name) || { fail_check "Upload to GitHub"; return 1; }
+        fi
+      else
+        fail_check "Create a fork on GitHub"
+        note "Fork it on the website instead: open https://github.com/$FOREIGN and click Fork. Then see docs/10-github-by-hand.md."
+        return 1
+      fi ;;
     connect)
-      step "A project called '$name' already exists on my GitHub, and it has an older version of this same history. 'git remote add' connects this folder to it." \
+      step "A project called '$name' already exists on my GitHub, with an older version of this same history. 'git remote add' connects this folder to it." \
            "git remote add origin https://github.com/$GH_USER/$name.git" \
            git remote add origin "https://github.com/$GH_USER/$name.git"
       if step "'git push' uploads the new save points. '-u' remembers the connection for next time." \
@@ -1253,7 +1509,7 @@ part12() {
         name=$(free_repo_name) || { fail_check "Upload to GitHub"; return 1; }
       fi ;;
   esac
-  if [ "$TARGET_MODE" = "create" ] && [ "$name" != "$REPO_NAME" ] && [ -z "$FOREIGN" ]; then
+  if [ "$TARGET_MODE" = "create" ] && [ "$name" != "$REPO_NAME" ]; then
     note "A different project called '$REPO_NAME' already exists on GitHub, so this one is called '$name'. Nothing on GitHub is deleted."
   fi
   if [ "$pushed" = 0 ]; then
@@ -1263,50 +1519,37 @@ part12() {
       return 1
     fi
   fi
-  REPO_URL="https://github.com/$GH_USER/$name"
   TARGET_NAME="$name"
+  REPO_URL="https://github.com/$GH_USER/$name"
 
-  # --- make the project easy to find and public ------------------------------
-  local vis
-  vis=$(gh repo view "$GH_USER/$name" --json visibility --jq .visibility 2>/dev/null)
-  if [ "$vis" = "PRIVATE" ]; then
-    step "This project is private, but it should be public so that anyone can use it and learn from it. 'gh repo edit --visibility public' changes that." \
-         "gh repo edit $GH_USER/$name --visibility public --accept-visibility-change-consequences" \
-         gh repo edit "$GH_USER/$name" --visibility public --accept-visibility-change-consequences
-  fi
-  step "'gh repo edit' also sets a short description and 'topics'. Topics are tags that help people find the project when they search on GitHub." \
-       "gh repo edit $GH_USER/$name --description \"...\" --add-topic docker,docker-compose,mysql,nginx,git,github-cli,beginner-friendly,tutorial" \
-       gh repo edit "$GH_USER/$name" \
-         --description "Beginner-friendly, fully automatic Docker Compose demo: web + MySQL + Adminer + worker, explained step by step" \
-         --add-topic docker,docker-compose,mysql,nginx,adminer,git,github-cli,beginner-friendly,tutorial,devops
-
-  # --- verify the upload ---------------------------------------------------------
+  # --- verify the upload: ask GitHub itself ------------------------------------
   step "'git status' now compares my computer with GitHub." "git status" git status
   notice "'Your branch is up to date with origin/main' means GitHub has exactly the same save points as my computer."
 
   local local_sha remote_sha="" _t
   local_sha=$(git rev-parse HEAD)
   for _t in 1 2 3 4 5; do
-    remote_sha=$(gh api "repos/$GH_USER/$name/commits/main" --jq .sha 2>/dev/null)
+    remote_sha=$(git ls-remote origin refs/heads/main 2>/dev/null | awk '{print $1}')
     [ "$remote_sha" = "$local_sha" ] && break
     sleep 2
   done
-  step "Now the real proof: I ask GitHub itself for the newest save point of the project, and compare it with the newest save point on this computer. 'git rev-parse HEAD' prints the full ID of my newest save point." \
-       "git rev-parse HEAD ; gh api repos/$GH_USER/$name/commits/main --jq .sha" \
+  step "Now the real proof. 'git rev-parse HEAD' prints the ID of the newest save point on this computer. 'git ls-remote' asks GitHub directly which save point its main branch has. Both IDs must be exactly the same." \
+       "git rev-parse HEAD ; git ls-remote origin refs/heads/main" \
        printf '  this computer: %s\n  GitHub:        %s\n' "$local_sha" "${remote_sha:-"(no answer)"}"
   if [ "$remote_sha" = "$local_sha" ]; then
     UPLOADED=1; PUSHED_SHA="$local_sha"
     pass_check "Uploaded to GitHub and verified: GitHub has commit ${local_sha:0:7}"
-    notice "Both IDs are exactly the same. GitHub has the newest version of the project."
+    notice "Both IDs are exactly the same. GitHub has the newest version of the project and the results."
   else
     fail_check "Uploaded to GitHub and verified (the IDs do not match)"
   fi
 
-  step "'gh api' can also list the files and folders of the project on GitHub." \
-       "gh api repos/$GH_USER/$name/contents --jq '.[].name'" \
-       gh api "repos/$GH_USER/$name/contents" --jq '.[].name'
+  local listing
+  if listing=$(gh api "repos/$GH_USER/$name/contents" --jq '.[].name' 2>/dev/null) && [ -n "$listing" ]; then
+    step "'gh api' asks GitHub for the list of files and folders in the project." \
+         "gh api repos/$GH_USER/$name/contents --jq '.[].name'" printf '%s\n' "$listing"
+  fi
 
-  # --- the automatic tests on GitHub ---------------------------------------------
   if [ -d .github/workflows ] && [ "$WORKFLOW_EXCLUDED" = 0 ]; then
     local runs=""
     for _t in 1 2 3 4 5 6 7 8; do
@@ -1315,19 +1558,24 @@ part12() {
       sleep 3
     done
     if [ -n "$runs" ]; then
-      step "The project has automatic tests (GitHub Actions). After every upload, GitHub starts its own computer, runs the whole Docker demo there, and checks the files. 'gh run list' shows the test run that just started." \
+      step "After every upload, GitHub runs the automatic tests (GitHub Actions) on its own computers. 'gh run list' shows the test run that just started." \
            "gh run list --repo $GH_USER/$name --commit ${local_sha:0:7}" printf '%s\n' "$runs"
-      notice "The test run has started on GitHub. It takes about 3 to 5 minutes. When it is finished, the badge at the top of the README turns green: 'passing'."
+      notice "The test run has started on GitHub. It takes about 3 to 5 minutes. Its results appear in the Actions tab."
     else
-      info "GitHub will start the automatic tests in a moment: $REPO_URL/actions"
+      info "GitHub starts the automatic tests in a moment: $REPO_URL/actions (in a new fork, open the Actions tab once and enable them)."
     fi
   fi
 
   printf '%s\n' "$REPO_URL" > "$URL_FILE" 2>/dev/null
-  ok "The project is on GitHub"
-  link "Open it in the browser:  $REPO_URL"
+  ok "The project and the results are on GitHub"
+  link "Project:  $REPO_URL"
+  link "Results:  $REPO_URL/blob/main/results/latest-run.md"
   echo
-  explain "On that page, anyone can read the documentation, see every file and the full history. To download the project and run the same demo, they only need: git clone $REPO_URL.git"
+  explain "Anyone can open that page, read the documentation and the results, and run the same demo: fork it and open it in GitHub Codespaces, or download it with 'git clone $REPO_URL.git'."
+
+  if [ "$LOGOUT_AFTER" = 1 ]; then
+    github_logout
+  fi
 }
 
 # ============================================================================
@@ -1339,7 +1587,8 @@ closing() {
   box "$CYAN" "CLOSING" \
     "To finish. Without Docker Compose, I would need many long commands, typed in the right order, every time." \
     "With Docker Compose, one file describes the services, the network and the volumes. One command starts everything, and one command removes everything." \
-    "Before uploading, the script cleaned up everything temporary and proved with fingerprints that no project file was damaged."
+    "Before uploading, the script cleaned up everything temporary and proved with fingerprints that no project file was damaged." \
+    "All results of this run are written to a report, results/latest-run.md, so anyone can check them later."
   if [ "$DO_GIT" = 1 ]; then
     box "$CYAN" "CLOSING" "With Git, the project and its full history are saved. With the GitHub CLI, it is uploaded to GitHub, so anyone can download it, learn from it, and run it."
   fi
@@ -1371,9 +1620,10 @@ closing() {
 }
 
 final_screen() {
+  end_part_timer
   [ -n "$TMP_DIR" ] && remove_tmp_dir
   local secs=$(( $(date +%s) - START_TIME ))
-  local nok=${#RESULTS_OK[@]} nfail=${#RESULTS_FAIL[@]}
+  local nok=${#RESULTS_OK[@]} nfail=${#RESULTS_FAIL[@]} r item
   if [ "$MODE" != "fast" ] && [ -t 1 ]; then clear; fi
   if [ "$nfail" -eq 0 ]; then
     banner "SUCCESS - THE WHOLE PROCESS IS COMPLETE" "$GREEN"
@@ -1382,21 +1632,44 @@ final_screen() {
   fi
   echo
   printf '%s\n' "  ${B}Result of every check ($nok passed, $nfail failed):${R}"
-  local r
   for r in "${RESULTS_OK[@]}";   do printf '%s\n' "    ${GREEN}${B}[PASSED]${R} $r"; done
   for r in "${RESULTS_FAIL[@]}"; do printf '%s\n' "    ${RED}${B}[FAILED]${R} $r"; done
+
+  if [ ${#FACTS[@]} -gt 0 ]; then
+    echo
+    printf '%s\n' "  ${B}Execution results:${R}"
+    for item in "${FACTS[@]}"; do printf '    %-47s %s\n' "${item%%|*}:" "${item#*|}"; done
+  fi
   echo
+  if [ -f results/latest-run.md ]; then
+    printf '%s\n' "  ${B}Full report on this computer:${R} results/latest-run.md"
+  fi
+
   if [ "$UPLOADED" = 1 ]; then
+    echo
     line
-    printf '%s\n' "  ${GREEN}${B}The entire project has been uploaded to GitHub, and the upload was verified.${R}"
+    printf '%s\n' "  ${GREEN}${B}The project and the results have been uploaded to GitHub, and the upload was verified.${R}"
     echo
     printf '    %-18s %s\n' "Project page:"     "$REPO_URL"
+    printf '    %-18s %s\n' "Results report:"   "$REPO_URL/blob/main/results/latest-run.md"
+    printf '    %-18s %s\n' "Run history:"      "$REPO_URL/blob/main/results/run-history.md"
     printf '    %-18s %s\n' "Automatic tests:"  "$REPO_URL/actions"
     printf '    %-18s %s\n' "Latest commit:"    "${PUSHED_SHA:0:7}  (GitHub and this computer match)"
     printf '    %-18s %s\n' "Download it with:" "git clone $REPO_URL.git"
     line
   elif [ "$DO_GIT" = 1 ] && [ "$DO_PUSH" = 0 ]; then
-    note "The project is saved with Git on this computer. The upload to GitHub was skipped this time."
+    note "The project and the results are saved with Git on this computer. The upload to GitHub was skipped this time."
+  fi
+
+  # GitHub sign-in status on this computer
+  if [ "$IN_CODESPACES" = 0 ] && [ "$IN_CI" = 0 ] && command -v gh >/dev/null 2>&1; then
+    echo
+    if [ "$LOGGED_OUT" = 1 ]; then
+      ok "This computer is signed out of GitHub."
+    elif gh_logged_in; then
+      note "This computer is still signed in to GitHub${GH_USER:+ as $GH_USER}. That is normal and lets the next run upload again."
+      note "On a shared computer, sign out completely with:  ./demo.sh --logout"
+    fi
   fi
   echo
   printf '%s\n' "  Total time: $((secs / 60)) min $((secs % 60)) s"
@@ -1411,6 +1684,14 @@ final_screen() {
 # ============================================================================
 # Main
 # ============================================================================
+if [ "$LOGOUT_ONLY" = 1 ]; then
+  banner "Sign out of GitHub on this computer"
+  github_logout
+  echo
+  [ ${#RESULTS_FAIL[@]} -eq 0 ]
+  exit $?
+fi
+
 banner "Running Multi-Container Applications with Docker Compose"
 [ "$SETUP_ONLY" = 0 ] && rm -f "$URL_FILE" 2>/dev/null
 preflight
@@ -1439,6 +1720,9 @@ if [ "$DO_GIT" = 1 ]; then
   else
     note "Part 11 did not finish. Fix the problem shown above, then run:  ./demo.sh --git-only"
   fi
+else
+  end_part_timer
+  write_report      # no Git: the report is still written (for example on GitHub Actions)
 fi
 
 closing

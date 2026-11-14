@@ -43,6 +43,19 @@ jobs:
       - name: Run demo.sh (fast mode, Docker parts + clean up)
         run: bash demo.sh --fast --no-git
 
+      - name: Show the results on the summary page of this run
+        if: always()
+        run: |
+          if [ -f results/latest-run.md ]; then cat results/latest-run.md >> "$GITHUB_STEP_SUMMARY"; fi
+
+      - name: Save the results report as a downloadable file
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: demo-results
+          path: results/latest-run.md
+          if-no-files-found: ignore
+
   check-windows-launcher:
     name: Check the Windows launcher
     runs-on: windows-latest

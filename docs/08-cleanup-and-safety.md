@@ -24,12 +24,13 @@ your own files and data.
 | Temporary folder `/tmp/compose-demo-run.XXXXXX` with `fingerprint.sha256` and `page.html` | VM | Getting ready | Part 10 | Only needed while the demo runs |
 | `compose-demo-update.tar` | Windows `TEMP` folder | Launcher | Launcher, right after copying | Only a transport package |
 | `/tmp/compose-demo-update.tar` and `/tmp/compose-demo-import.XXXXXX` | VM | Launcher | `--import-update` right away (Part 10 removes any old leftovers) | Only a transport package |
-| One new line in `docs/demo-runs.md` | Project | Part 11 | **Kept** | It is part of the project's history |
+| `results/latest-run.md` (the report) and one new line in `results/run-history.md` | Project | Part 11 (or the end, without Git) | **Kept** | They are your results |
 | Git commits | `.git` in the project | Part 11 | **Kept** | That is the whole point of Git |
 | Your project on GitHub | github.com | Part 12 | **Kept** | That is the goal |
 | `~/.compose-demo-github-url` (one line: your project's address) | VM | Part 12 | Replaced at the next run | The launcher reads it to open your GitHub page |
 | The 4 images | Docker | `cloud-init.yaml` | **Kept** | Needed for the next run, even without internet |
 | Backups `~/compose-demo-backups/<date-time>/` | VM | `--import-update`, only if needed | **Kept** | They protect your unsaved changes |
+| GitHub sign-in: gh's key in `~/.config/gh/hosts.yml`, Git's setting in `~/.gitconfig` | VM / Linux | The one-time sign-in | **Kept** until you run `./demo.sh --logout` | So the next run can upload again. On shared computers, sign out (see below) |
 
 ---
 
@@ -87,8 +88,19 @@ how many other containers exist, and that they were left alone.
 - If GitHub has changes that your computer does not have, GitHub refuses the push. The script
   then uploads to a **new** name (`compose-demo-2`, ...) instead of overwriting anything.
 - If a different project already has the name, the script also uses a new name.
-- If the folder was downloaded from someone else's project, it creates **your own** copy.
+- If the folder was downloaded from someone else's project, it creates **your own fork** (`gh repo fork`).
+  In Codespaces, it only uploads into a codespace of your own project or fork.
 - The script never deletes a repository.
+
+---
+
+### 6. Your GitHub sign-in
+
+Signing in stores a key on the computer. The script never shows it in full (`gh auth status`
+prints `gho_****`), never writes it into the project, and never uploads it. `.gitignore` also keeps
+`.env` files out of Git. `./demo.sh --logout` removes the key and Git's GitHub settings, and then
+**checks** that you are signed out. Why signing out on the website is not enough:
+[10 - Signing in and signing out](10-github-by-hand.md#signing-in-and-signing-out).
 
 ---
 
@@ -101,7 +113,8 @@ These commands remove more than the demo does. Use them only if you really want 
 | Remove this project's containers, network and volume | `docker compose down --volumes --remove-orphans` | VM, in `~/compose-demo` |
 | Remove the 4 images (they must be downloaded again next time) | `docker image rm nginx:latest mysql:8.4 adminer:latest busybox:latest` | VM |
 | Remove the backups made by the launcher | `rm -rf ~/compose-demo-backups` (look inside first!) | VM |
-| Log out of GitHub on this VM | `gh auth logout` | VM |
+| Sign out of GitHub on this VM, completely | `./demo.sh --logout` (or `Start-Demo.bat --logout` on Windows) | VM |
+| Cancel the GitHub CLI key on GitHub itself (all devices) | <https://github.com/settings/applications> → **GitHub CLI** → **Revoke access** | Browser |
 | Delete the whole VM | `multipass delete compose-lab` then `multipass purge` | Windows / macOS / Linux |
 | Delete your project on GitHub | On github.com: your project → **Settings** → bottom of the page → **Delete this repository**. This cannot be undone | Browser |
 

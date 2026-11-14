@@ -194,6 +194,14 @@ A **remote** is a link from your folder to a repository on GitHub.
 `origin` is the usual name of **your own** online repository.
 `upstream` is the usual name of **someone else's** repository that you copied from.
 
+### Fork
+
+A **fork** is **your own copy of someone else's project on GitHub**. It stays linked to the
+original, so its owner can see it. You can change and push to your fork freely. To suggest your
+change to the original, you open a **pull request**.
+
+*In this project:* you fork it before you open a codespace, so your results are saved in your fork.
+
 ### Push, pull and clone
 
 | Word | Direction | Meaning |
@@ -209,11 +217,20 @@ Easy way to remember: you **push** a box **away** from you, and you **pull** a r
 **gh** is GitHub's official command-line tool. It logs in to GitHub and creates and changes
 repositories from the terminal, for example `gh repo create`.
 
-### Login token and scopes
+### Login token, scopes and revoking
 
-When `gh` logs in, GitHub gives it a secret **token** (a long password just for this tool).
-**Scopes** are the permissions of the token. `repo` lets it work with repositories.
-`workflow` lets it upload the automatic test files in `.github/workflows/`.
+When `gh` logs in, GitHub gives it a secret **token** (a long password just for this tool), and
+`gh` saves it **on that computer**. **Scopes** are the permissions of the token: `repo` lets it work
+with repositories, `workflow` lets it upload the automatic test files in `.github/workflows/`.
+
+Signing out on the website does not delete this token. `gh auth logout` deletes it from the
+computer. **Revoking** it on github.com (Settings → Applications) makes it useless everywhere.
+
+### GitHub Codespaces
+
+A **codespace** is a **free Linux computer in the cloud** that opens in your browser, with an
+editor and a terminal. It is created from a GitHub project, already signed in to your account,
+and set up by the file `.devcontainer/devcontainer.json`.
 
 ### GitHub Actions (CI)
 
@@ -234,6 +251,7 @@ This is called **CI (continuous integration)**: every change is tested automatic
 | CI | Continuous integration: automatic tests after every change |
 | Clone | Download a whole repository from GitHub |
 | cloud-init | Sets up a new Linux machine on its first start |
+| Codespace | A free cloud computer for a GitHub project, in the browser |
 | Commit | A save point in Git |
 | Container | A sealed box that runs one program |
 | Daemon / engine | A program that runs in the background (the Docker engine) |
@@ -242,6 +260,7 @@ This is called **CI (continuous integration)**: every change is tested automatic
 | Docker Compose | Starts many containers from one file |
 | Docker Hub | The online library of images |
 | Environment variable | A named setting a program reads when it starts |
+| Fork | Your own copy of someone else's project on GitHub |
 | gh | The GitHub command-line tool |
 | Git | The version control tool |
 | GitHub | The website for Git repositories |
@@ -258,8 +277,10 @@ This is called **CI (continuous integration)**: every change is tested automatic
 | origin | The usual name of your own online repository |
 | Port | A door number on a computer |
 | Pull | Download new commits from GitHub |
+| Pull request | Asking the owner of a project to take your change |
 | Push | Upload new commits to GitHub |
 | Repository | A project folder tracked by Git |
+| Revoke | Cancel a token on GitHub, so it stops working everywhere |
 | Scaling | Running more copies of a service |
 | Scope | A permission of a login token |
 | Service | One job (one entry) in the compose file |

@@ -42,6 +42,32 @@ Find your problem in the tables below. Every `[PROBLEM]` message of the script a
 | The badge says **failing** | One automatic test failed on GitHub | Open the **Actions** tab, click the red run, then the red job, to read the message |
 | The badge shows an error image | The link still says `your-username` | Run the demo with GitHub connected (Part 11 replaces it), or edit the address in `README.md` by hand |
 
+## Signing in and out
+
+| Problem | Cause | Fix |
+|---|---|---|
+| **Still signed in after signing out** | Signing out on github.com only ends the browser session. The GitHub CLI in the VM keeps its own key, and Git is set up to use it. `gh auth logout` only removes the key from that one computer | `./demo.sh --logout` (or `Start-Demo.bat --logout`), then revoke the key: <https://github.com/settings/applications> → **GitHub CLI** → **Revoke access**. Full explanation: [10](10-github-by-hand.md#signing-in-and-signing-out) |
+| Still signed in after `--logout` | A `GH_TOKEN` or `GITHUB_TOKEN` variable is set | The script tells you. Remove that line from `~/.bashrc` or `~/.profile`, then open a new terminal |
+| Git on Windows still pushes without asking | Git for Windows saved the password in the Credential Manager | Command Prompt: `cmdkey /delete:git:https://github.com`, or Control Panel → Credential Manager → Windows Credentials |
+| Wrong GitHub account | You signed in with another account earlier | `./demo.sh --logout`, then `./demo.sh --setup` to sign in with the right one |
+
+## GitHub Codespaces
+
+| Problem | Cause | Fix |
+|---|---|---|
+| "This codespace was opened on ...'s project, not on your own copy" | The codespace belongs to the original project, not to your fork | Click **Fork** on the original project, then **Code** → **Codespaces** → **Create codespace** on **your fork** |
+| The website does not open | The port is not forwarded yet, or the app is not running | Open the **Ports** tab, click the globe of port **8080**. The pages only work during Parts 5 to 8 |
+| "You have used all your free Codespaces hours" | The monthly free amount is used up | Stop codespaces you do not use (<https://github.com/codespaces>), or use the Windows way |
+| The codespace is slow to start | The first start builds the environment | Wait 1 to 2 minutes. Later starts are faster |
+
+## Forks and results
+
+| Problem | Cause | Fix |
+|---|---|---|
+| The tests do not run in my fork | GitHub switches off workflows in new forks | Open the **Actions** tab of your fork and click **I understand my workflows, go ahead and enable them** |
+| `results/latest-run.md` says "No run yet" | The demo has not finished a run in this copy | Run `./demo.sh` (with Git, it is written in Part 11. With `--no-git`, at the end) |
+| The upload went to `<you>/compose-demo-2` | Your fork or project on GitHub had changes this computer does not have | Nothing was overwritten. To combine instead: `git pull`, then `git push` ([10, step 8](10-github-by-hand.md#step-8-download-changes-pull)) |
+
 ## Script messages
 
 | Message | Meaning |
@@ -74,12 +100,19 @@ the outside. In real projects, passwords go into a `.env` file, which `.gitignor
 They are not temporary. The next run needs them, and keeping them lets the demo work without internet.
 
 **Can my teacher (or anyone) run it without my GitHub account?**
-Yes. When they are not logged in, the script asks if they want to upload, and "No" is the default.
-They can also just watch the run in the **Actions** tab, without installing anything.
+Yes. Easiest: fork the project and open a codespace on the fork (nothing to install). Without
+GitHub, the script asks if they want to upload, and "No" is the default. They can also just watch
+a complete run in the **Actions** tab, without installing anything.
 
 **What if someone downloads my project and runs it with their own GitHub account?**
-The script sees that the folder came from your project, keeps that link as `upstream`, and creates
-**their own** copy. Your project is never changed by other people.
+The script sees that the folder came from your project and creates **their own fork**
+(`gh repo fork --remote`). Your project is never changed by other people, and you can see their
+forks on your project page (**Forks**).
+
+**Which way should I choose: Codespaces or the Windows launcher?**
+Codespaces for students, teachers and quick tries: nothing to install, and nothing is stored on
+your computer. The Windows launcher for presenting in class without depending on Wi-Fi (after the
+first setup, the images are already in the VM).
 
 **Can I change the project name?**
 Yes, for a new project: `REPO_NAME=my-name ./demo.sh`. An existing connection (`origin`) is always used as it is.
@@ -93,4 +126,4 @@ Yes: `./demo.sh --manual` waits for Enter before every step. Or press **p** at a
 
 ---
 
-**Back to:** [README](../README.md)
+**Next:** [10 - GitHub by hand](10-github-by-hand.md) · **Back to:** [README](../README.md)

@@ -16,6 +16,9 @@ Words in `<angle brackets>` are placeholders: replace them with your own value.
 | `Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -All` | Turns on Hyper-V (Admin window) |
 | `multipass version` | Shows that Multipass is installed |
 | `Start-Demo.bat` / `Start-Demo.bat --slow` | Runs the whole demo (double-click, or type it in the project folder) |
+| `Start-Demo.bat --logout` | Signs the VM out of GitHub completely |
+| `cmdkey /list` | Lists passwords saved in the Windows Credential Manager (Command Prompt) |
+| `cmdkey /delete:git:https://github.com` | Removes the GitHub password that Git for Windows saved (only if you ever used Git directly on Windows) |
 
 ## Multipass (Windows, macOS or Linux)
 
@@ -39,8 +42,11 @@ Words in `<angle brackets>` are placeholders: replace them with your own value.
 | `./demo.sh --setup` | Checks + one-time GitHub login, then stops |
 | `./demo.sh --fast --no-git` | Quick Docker test without Git (what GitHub Actions runs) |
 | `./demo.sh --git-only` | Clean up + Git + GitHub only |
+| `./demo.sh --logout` | Signs out of GitHub on this computer, completely |
+| `./demo.sh --logout-after` | Uploads, then signs out |
+| `cat results/latest-run.md` | Shows the report of the newest run |
 
-All options: [README, section 7](../README.md#7-options).
+All options: [README, section 9](../README.md#9-options).
 
 ## Docker Compose
 
@@ -124,9 +130,12 @@ All options: [README, section 7](../README.md#7-options).
 | `git log --oneline` | The history, one line per commit |
 | `git diff` | Shows exactly what changed |
 | `git rev-parse HEAD` | Prints the full ID of the newest commit |
+| `git ls-remote origin refs/heads/main` | Asks GitHub for the ID of the newest commit on its `main` branch |
 | `git remote -v` | Lists the connections to GitHub |
 | `git remote add origin <address>` | Connects the folder to a GitHub project |
 | `git remote rename origin upstream` | Renames a connection |
+| `git fetch upstream` / `git merge upstream/main` | Downloads the original project's new commits / combines them into yours |
+| `git config --global --remove-section credential.https://github.com` | Removes Git's GitHub sign-in setting (written by `gh auth setup-git`) |
 | `git push -u origin main` | Uploads and remembers the connection |
 | `git push` | Uploads new commits |
 | `git pull` | Downloads new commits |
@@ -141,11 +150,12 @@ All options: [README, section 7](../README.md#7-options).
 | `gh auth refresh --hostname github.com --scopes workflow` | Adds the `workflow` permission |
 | `gh auth status` | Shows the logged-in account and its permissions |
 | `gh auth setup-git` | Lets Git use gh's login |
-| `gh auth logout` | Logs out on this computer |
+| `gh auth logout --hostname github.com --user <name>` | Deletes the saved key of one account from this computer (it does **not** revoke it on GitHub) |
 | `gh repo create <name> --public --source=. --remote=origin --push` | Creates a public GitHub project from this folder and uploads it |
+| `gh repo fork --remote` | Creates your fork of the current project; `origin` becomes your fork, `upstream` the original |
+| `gh pr create --fill` | Opens a pull request (suggests your change to the original project) |
 | `gh repo view <owner>/<name>` | Shows a project (also used to check if a name exists) |
 | `gh repo edit <owner>/<name> --description "<text>" --add-topic <a>,<b>` | Sets the description and topics |
-| `gh repo edit <owner>/<name> --visibility public --accept-visibility-change-consequences` | Makes a project public |
 | `gh api repos/<owner>/<name>/commits/main --jq .sha` | Asks GitHub for the newest commit ID |
 | `gh api repos/<owner>/<name>/contents --jq '.[].name'` | Asks GitHub for the list of files |
 | `gh run list --repo <owner>/<name>` | Lists the automatic test runs |

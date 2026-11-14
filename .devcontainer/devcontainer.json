@@ -1,0 +1,27 @@
+// Settings for GitHub Codespaces: a free computer in the cloud that runs in your browser.
+// It has Docker, Docker Compose, Git and the GitHub CLI ready, and it is already signed in
+// to your GitHub account. Explained in docs/01-setup-from-zero.md and docs/06-files-explained.md
+{
+  "name": "Docker Compose Demo",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "hostRequirements": {
+    "cpus": 2,
+    "memory": "4gb"
+  },
+  "forwardPorts": [8080, 8081],
+  "portsAttributes": {
+    "8080": { "label": "Website (web container)", "onAutoForward": "notify" },
+    "8081": { "label": "Adminer (database viewer)", "onAutoForward": "notify" }
+  },
+  "postCreateCommand": "chmod +x demo.sh",
+  "postAttachCommand": "echo; echo '  Welcome! To start the demo, type:  ./demo.sh   and press Enter.'; echo",
+  "customizations": {
+    "codespaces": {
+      "openFiles": ["README.md"]
+    }
+  }
+}

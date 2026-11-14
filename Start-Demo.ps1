@@ -11,6 +11,7 @@
 #    5. runs the demo (press Enter once to start it)
 #    6. opens your GitHub project page at the end
 #  Options are passed on to demo.sh, for example:  Start-Demo.bat --slow
+#  To sign the VM out of GitHub completely:        Start-Demo.bat --logout
 # =============================================================================
 
 $ErrorActionPreference = "Continue"
@@ -92,7 +93,7 @@ $ip = ((multipass exec $VmName -- hostname -I) -split '\s+' | Where-Object { $_ 
 Good "VM address: $ip   (website: http://${ip}:8080   Adminer: http://${ip}:8081)"
 
 $browserJob = $null
-if ($Options -notmatch "--git-only" -and $Options -notmatch "--setup") {
+if ($Options -notmatch "--git-only" -and $Options -notmatch "--setup" -and $Options -notmatch "--logout") {
   $browserJob = Start-Job -ArgumentList $ip -ScriptBlock {
     param($ip)
     $pages    = @("http://${ip}:8080/", "http://${ip}:8081/")
