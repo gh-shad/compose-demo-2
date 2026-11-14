@@ -38,6 +38,7 @@ After the lesson, a student can:
 | 7 | Save work with Git: `init`, `status`, `add`, `commit`, `log`, `diff` | Part 11 |
 | 8 | Upload work to GitHub, use a **fork**, and check that the upload really arrived | Part 12 |
 | 9 | Sign out of GitHub completely, and explain why the website alone is not enough | Part 13 |
+| 10 | Name three ways the demo protects the computer (fixed versions, `no-new-privileges`, read-only files, security headers) | Parts 4 and 5 |
 
 ---
 
@@ -111,7 +112,10 @@ Ask these when you pause the demo. The answers are short, so you can check them 
 | 3 | What is the difference between a **service** and a **container**? | A service is the description in the compose file. A container is a running copy of it. One service can have several containers (Part 8) |
 | 4 | What does `"8080:80"` mean? | Port 8080 of the computer is connected to port 80 inside the container |
 | 4 | Why does the `db` service have **no** `ports:` line? | Only the other containers need it, and they reach it over the private network. Not opening a port is safer |
+| 4 | Why do the images have fixed versions like `nginx:1.30` instead of `latest`? | `latest` can change at any time. A fixed version makes every run use the same, tested program. Updates are still suggested by Dependabot and tested before they are used |
+| 4 | What does `no-new-privileges:true` protect against? | A program inside the container cannot give itself more rights (for example with a "set user" program), even if an attacker gets in |
 | 5 | What does `-d` in `docker compose up -d` do? | Runs the containers in the background (detached), so the terminal is free again |
+| 5 | Why does the `Server` header say only `nginx`, without a version? | `server_tokens off;` hides the version, so an attacker cannot easily look up known problems of that exact version |
 | 6 | How does the worker find the database with only the name `db`? | Compose creates the network `app-network` with a built-in name service (DNS): every service name is turned into the container's address |
 | 6 | What would happen if `worker` were **not** on `app-network`? | It could not reach `db` by name. `ping db` would fail with "bad address" |
 | 7 | Why are the students still there after `docker compose down` and `up`? | The data is stored in the **volume** `db-data`, not in the container. `down` deletes the containers, but keeps volumes |
@@ -255,7 +259,7 @@ spaces, never tabs):
 
 ```yaml
   checker:
-    image: busybox:latest
+    image: busybox:1.37
     command: sh -c 'while true; do ping -c 1 web; sleep 10; done'
     networks:
       - app-network
@@ -312,6 +316,34 @@ docker compose config --quiet
 It prints an error that names the problem (for example, an unexpected key or a wrong line).
 Fix the indentation and run the command again: no output means the file is correct. This is the
 same check that GitHub Actions runs after every upload.
+
+</details>
+
+### Exercise 8 (extra): Check the security headers
+
+**Task:** show the security headers of the website, then find out what changes when the
+security settings file is not used.
+
+<details>
+<summary>Solution</summary>
+
+```bash
+curl -sI http://localhost:8080
+```
+
+The answer shows `Server: nginx` (no version number) and the four security headers
+`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` and `Content-Security-Policy`.
+
+Now put a `#` in front of the line `- ./nginx/security.conf:...` in `docker-compose.yml`, then:
+
+```bash
+docker compose up -d
+curl -sI http://localhost:8080
+```
+
+The `Server` line now shows the exact version (for example `nginx/1.30.0`), and the four security
+headers are gone. Remove the `#` again (or `git restore docker-compose.yml`) and run
+`docker compose up -d`: the headers are back. Lesson: one small, read-only file makes every page safer.
 
 </details>
 

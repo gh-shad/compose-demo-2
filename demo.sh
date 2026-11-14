@@ -88,7 +88,11 @@ if [ "$SPEED" = "slow" ]; then WPS=2; TYPE_DELAY=0.03; else WPS=3; TYPE_DELAY=0.
 # Always work inside the folder of this script
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR" || exit 1
-PROJECT="$(basename "$SCRIPT_DIR" | tr '[:upper:]' '[:lower:]')"
+# The Compose project name: the 'name:' line of docker-compose.yml. Without it, Compose uses the
+# folder name, in lowercase, with only a-z, 0-9, '-' and '_'. Docker puts this name on everything
+# it creates (as a label), and the clean up checks look for exactly this label.
+PROJECT="$(sed -n 's/^name:[[:space:]]*\([a-z0-9][a-z0-9_-]*\)[[:space:]]*$/\1/p' docker-compose.yml 2>/dev/null | head -1)"
+[ -n "$PROJECT" ] || PROJECT="$(basename "$SCRIPT_DIR" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_-' | sed 's/^[-_]*//')"
 START_TIME=$(date +%s)
 
 # Where is the script running?
@@ -255,6 +259,7 @@ step() {  # step "<explanation>" "<command shown>" <real command...>
 # Part 10 checks the path and deletes only that folder.
 # ----------------------------------------------------------------------------
 TMP_DIR=""
+IMAGES=()   # the images of docker-compose.yml (read with 'docker compose config --images')
 make_tmp_dir() { TMP_DIR=$(mktemp -d /tmp/compose-demo-run.XXXXXX) || { echo "Could not create a temporary folder"; exit 1; }; }
 
 remove_tmp_dir() {   # deletes TMP_DIR only if it really is this script's own temp folder
@@ -367,9 +372,20 @@ import_update() {
     fi
     mkdir -p "$(dirname "$rel")"
     cp "$f" "$rel" && copied=$((copied + 1))
-    case "$rel" in *.sh|*.yml|*.yaml|*.md|*.html|.gitignore|.gitattributes) sed -i 's/\r$//' "$rel" ;; esac
+    case "$rel" in *.sh|*.yml|*.yaml|*.md|*.html|*.conf|*.cff|.gitignore|.gitattributes|.editorconfig) sed -i 's/\r$//' "$rel" ;; esac
   done < <(find "$stage" -type f -print0)
   chmod +x demo.sh 2>/dev/null
+  # The copy from Windows has the example address in its links. If this folder is already connected
+  # to a GitHub project, put the real address back (Part 11 did the same before), so Git does not
+  # see changes that are not real.
+  local origin_url real
+  origin_url=$(git config --get remote.origin.url 2>/dev/null)
+  real=$(printf '%s' "$origin_url" | sed -n 's#^\(https://github\.com/\|git@github\.com:\)\([A-Za-z0-9_.-]*/[A-Za-z0-9_.-]*\)$#\2#p' | sed 's/\.git$//')
+  if [ -n "$real" ] && [ "$real" != "$PLACEHOLDER" ]; then
+    grep -rl --include='*.md' "$PLACEHOLDER" README.md docs 2>/dev/null | while IFS= read -r f; do
+      sed -i "s#$PLACEHOLDER#$real#g" "$f"
+    done
+  fi
   rm -rf -- "$stage"
   rm -f -- "$tarfile"
   echo "Updated $copied project files."
@@ -574,17 +590,22 @@ create_files_if_missing() {
   if [ ! -f docker-compose.yml ]; then
     info "docker-compose.yml was missing, so it was created again"
     cat > docker-compose.yml <<'YAML'
+name: compose-demo
+
 services:
   web:
-    image: nginx:latest
+    image: nginx:1.30
     ports:
       - "8080:80"
     volumes:
       - ./html:/usr/share/nginx/html:ro
+      - ./nginx/security.conf:/etc/nginx/conf.d/security.conf:ro
     depends_on:
       - db
     networks:
       - app-network
+    security_opt:
+      - no-new-privileges:true
 
   db:
     image: mysql:8.4
@@ -594,21 +615,28 @@ services:
       - db-data:/var/lib/mysql
     networks:
       - app-network
+    security_opt:
+      - no-new-privileges:true
 
   adminer:
-    image: adminer:latest
+    image: adminer:6
     ports:
       - "8081:8080"
     depends_on:
       - db
     networks:
       - app-network
+    security_opt:
+      - no-new-privileges:true
 
   worker:
-    image: busybox:latest
+    image: busybox:1.37
     command: sh -c 'while true; do echo "Worker $$(hostname) is working"; sleep 5; done'
+    read_only: true
     networks:
       - app-network
+    security_opt:
+      - no-new-privileges:true
 
 networks:
   app-network:
@@ -616,6 +644,30 @@ networks:
 volumes:
   db-data:
 YAML
+  fi
+
+  if [ ! -f nginx/security.conf ]; then
+    info "nginx/security.conf was missing, so it was created again"
+    mkdir -p nginx
+    cat > nginx/security.conf <<'NGINXCONF'
+# nginx/security.conf - security settings for the demo web server (the "web" service)
+# docker-compose.yml puts this file into the web container, read-only. NGINX loads
+# every *.conf file in /etc/nginx/conf.d/ when it starts. Explained in docs/03 and docs/08.
+
+# Do not show the NGINX version number in error pages and in the "Server" header.
+server_tokens off;
+
+# Security headers: extra instructions that the browser receives with every page.
+#   X-Content-Type-Options  - the browser must not guess file types
+#   X-Frame-Options         - no other website may show this page inside a frame
+#   Referrer-Policy         - links do not tell other websites where you came from
+#   Content-Security-Policy - the page may only use its own built-in styles:
+#                             no scripts, no outside files, no forms
+add_header X-Content-Type-Options "nosniff" always;
+add_header X-Frame-Options "DENY" always;
+add_header Referrer-Policy "no-referrer" always;
+add_header Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'" always;
+NGINXCONF
   fi
 
   if [ ! -f html/index.html ]; then
@@ -685,6 +737,14 @@ HTML
 # Secret settings (real projects keep passwords in a .env file)
 .env
 .env.*
+# Keys, certificates and other secrets
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+*.token
 # Log files
 *.log
 # Temporary files from editors and operating systems
@@ -694,6 +754,7 @@ HTML
 Thumbs.db
 # Update packages used by the Windows launcher
 *.tar
+*.bundle
 IGNORE
   fi
 
@@ -783,11 +844,12 @@ preflight() {
     ok "docker-compose.yml is correct"
 
     local missing=() img
-    for img in nginx:latest mysql:8.4 adminer:latest busybox:latest; do
+    mapfile -t IMAGES < <(dc config --images 2>/dev/null | sort -u)
+    for img in "${IMAGES[@]}"; do
       dk image inspect "$img" >/dev/null 2>&1 || missing+=("$img")
     done
     if [ ${#missing[@]} -eq 0 ]; then
-      ok "All 4 images are already downloaded (the demo works even without internet)"
+      ok "All ${#IMAGES[@]} images are already downloaded (the demo works even without internet)"
     else
       info "Downloading missing images: ${missing[*]}"
       if ! dc pull; then
@@ -951,11 +1013,14 @@ part2() {
 ${DIM}    docker network create app-network
     docker volume create db-data
     docker run -d --name db --network app-network -e MYSQL_ROOT_PASSWORD=examplepassword \\
-               -v db-data:/var/lib/mysql mysql:8.4
+               -v db-data:/var/lib/mysql --security-opt no-new-privileges:true mysql:8.4
     docker run -d --name web --network app-network -p 8080:80 \\
-               -v ./html:/usr/share/nginx/html:ro nginx:latest
-    docker run -d --name adminer --network app-network -p 8081:8080 adminer:latest
-    docker run -d --name worker --network app-network busybox:latest sh -c '...'${R}
+               -v ./html:/usr/share/nginx/html:ro -v ./nginx/security.conf:/etc/nginx/conf.d/security.conf:ro \\
+               --security-opt no-new-privileges:true nginx:1.30
+    docker run -d --name adminer --network app-network -p 8081:8080 \\
+               --security-opt no-new-privileges:true adminer:6
+    docker run -d --name worker --network app-network --read-only \\
+               --security-opt no-new-privileges:true busybox:1.37 sh -c '...'${R}
 EOF
   echo
   printf '%s\n' "  ${B}With Docker Compose, it is one command:${R}   ${GREEN}docker compose up -d${R}"
@@ -1021,21 +1086,26 @@ part4() {
   explain "This file is written in YAML. YAML is a simple text format. The spaces at the start of each line are important: a line that is pushed to the right belongs to the line above it, like items and sub-items in a shopping list."
 
   printf '%s\n' "  ${B}Now, the file part by part:${R}"
+  yaml_point '^name:'                     "name: compose-demo"      "The name of this project. Docker puts it in front of every container name, for example compose-demo-web-1, and on everything it creates."
   yaml_point '^services:'                 "services:"               "This is the list of all my containers."
-  yaml_point 'image: nginx'               "web  ->  image: nginx:latest" "The web service uses NGINX, a ready-made web server. Docker downloads it automatically."
+  yaml_point 'image: nginx'               "web  ->  image: nginx:1.30" "The web service uses NGINX, a ready-made web server. Docker downloads it automatically. 1.30 is the version: every image has a fixed version, so the demo works the same way every time."
   yaml_point '"8080:80"'                  "ports: \"8080:80\""      "Think of ports as door numbers. When someone knocks on door 8080 of my computer, Docker sends them to door 80 inside the web container."
   yaml_point '\./html:'                   "volumes: ./html:...:ro"  "This puts my own web page inside the container, instead of the default NGINX page. ':ro' means read-only: the container can read the page, but cannot change it."
+  yaml_point 'security\.conf'             "./nginx/security.conf"   "My security settings for NGINX, also read-only: hide the NGINX version, and send security headers with every page. Part 5 checks them."
+  yaml_point 'no-new-privileges'          "security_opt: no-new-privileges:true" "A safety lock on every service: a program inside the container can never give itself more rights than it started with."
   yaml_point '^    depends_on:'           "depends_on: db"          "Start the database first, then the website."
   yaml_point 'mysql:8.4|MYSQL_ROOT'       "db  ->  image: mysql:8.4 and MYSQL_ROOT_PASSWORD" "The db service is the MySQL database. Its password is given as a setting, called an environment variable."
   yaml_point 'db-data:/var/lib/mysql'     "db-data:/var/lib/mysql"  "The database keeps its files in the db-data locker (the volume), not inside the container. So the data is safe even if the container is deleted."
   yaml_point '^  adminer:|^  worker:'     "adminer: and worker:"    "Two small extras. Adminer is a web page to look inside the database. The worker is a tiny helper that I use to show scaling."
+  yaml_point 'read_only'                  "worker  ->  read_only: true" "The worker never needs to save anything, so its files are read-only. Even if someone broke into it, they could not change it."
   yaml_point '^networks:|^volumes:'       "networks: and volumes: (at the bottom)" "Here the road (app-network) and the locker (db-data) are created, so the services can use them."
 
   echo
-  explain "Three small updates compared to the reference material:" \
+  explain "Four small updates compared to the reference material:" \
           "One: the command is now 'docker compose', with a space. The old 'docker-compose', with a dash, is version 1. It is not supported since 2023. All the commands work the same way." \
           "Two: the line \"version: '3.8'\" is not needed any more. Docker ignores it." \
-          "Three: MySQL 5.7 reached its end of life in 2023, so I use MySQL 8.4, the current long-term version."
+          "Three: MySQL 5.7 reached its end of life in 2023, so I use MySQL 8.4, a long-term support version." \
+          "Four: safety. Every image has a fixed version instead of 'latest', every service has the no-new-privileges lock, the worker is read-only, and the web server sends security headers."
   step "'docker compose version' shows which version of Docker Compose is installed." \
        "docker compose version" dc version
   pause 3
@@ -1071,6 +1141,12 @@ part5() {
   echo
   link "The website in the browser:  $(app_url 8080)"
   notice "This page comes from the NGINX container. It is my own page, which the compose file put inside the container."
+
+  step "Now the security settings from nginx/security.conf. 'curl -I' asks only for the headers: the extra information that comes with a page. 'grep' shows the security headers and the Server line." \
+       "curl -sI http://localhost:8080 | grep -i -E '^(server|x-content-type-options|x-frame-options|referrer-policy|content-security-policy):'" \
+       sh -c "curl -sI --max-time 5 http://localhost:8080 > '$TMP_DIR/headers.txt'; grep -i -E '^(server|x-content-type-options|x-frame-options|referrer-policy|content-security-policy):' '$TMP_DIR/headers.txt'"
+  verify "The website sends security headers and hides the NGINX version" sh -c "grep -qi '^x-content-type-options: *nosniff' '$TMP_DIR/headers.txt' && grep -qi '^x-frame-options: *deny' '$TMP_DIR/headers.txt' && grep -qi '^content-security-policy:' '$TMP_DIR/headers.txt' && ! grep -qi '^server: *nginx/' '$TMP_DIR/headers.txt'"
+  notice "The Server line says only 'nginx', without a version number, so attackers learn less. The other lines tell the browser to be strict: no guessing file types, no showing this page inside other websites, no outside scripts."
 }
 
 # ============================================================================
@@ -1229,13 +1305,16 @@ part10() {
     verify "Clean up: no containers, networks or volumes of this project are left" test "$(project_leftovers)" -eq 0
     notice "The three lists only show their headings. Nothing of this project is left."
 
-    step "Some things are kept on purpose. The 4 images are not temporary: the next run uses them again, so the demo works even without internet. 'docker image ls' lists them." \
-         "docker image ls --filter reference=nginx:latest --filter reference=mysql:8.4 --filter reference=adminer:latest --filter reference=busybox:latest" \
-         dk image ls --filter reference=nginx:latest --filter reference=mysql:8.4 --filter reference=adminer:latest --filter reference=busybox:latest
+    local img filters=()
+    [ ${#IMAGES[@]} -gt 0 ] || mapfile -t IMAGES < <(dc config --images 2>/dev/null | sort -u)
+    for img in "${IMAGES[@]}"; do filters+=(--filter "reference=$img"); done
+    step "Some things are kept on purpose. The ${#IMAGES[@]} images are not temporary: the next run uses them again, so the demo works even without internet. 'docker image ls' lists them." \
+         "docker image ls ${filters[*]}" \
+         dk image ls "${filters[@]}"
     local others; others=$(dk ps -aq | wc -l)
     info "Other containers on this computer: $others (not touched by this script)"
     fact "Other containers on this computer" "$others (not touched)"
-    notice "The images stay. To remove them too, you could run 'docker image rm nginx:latest mysql:8.4 adminer:latest busybox:latest', but then the next run must download them again."
+    notice "The images stay. To remove them too, you could run 'docker image rm ${IMAGES[*]}', but then the next run must download them again."
   elif [ "$KEEP" = 1 ]; then
     note "--keep was used, so the containers keep running and the Docker clean up is skipped."
   fi

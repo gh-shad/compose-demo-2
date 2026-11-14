@@ -233,9 +233,10 @@ The last screen looks like this:
 |                   SUCCESS - THE WHOLE PROCESS IS COMPLETE                    |
 +==============================================================================+
 
-  Result of every check (15 passed, 0 failed):
+  Result of every check (17 passed, 0 failed):
     [PASSED] All 4 containers started and are running
     [PASSED] The website answered on port 8080
+    [PASSED] The website sends security headers and hides the NGINX version
     ...
     [PASSED] Uploaded to GitHub and verified: GitHub has commit 1a2b3c4
     [PASSED] Signed out of GitHub on this computer (GitHub CLI and Git)

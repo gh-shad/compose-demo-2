@@ -102,6 +102,38 @@ prints `gho_****`), never writes it into the project, and never uploads it. `.gi
 then **checks** that you are signed out (`./demo.sh --logout` does the same at any time). Why signing out on the website is not enough:
 [10 - Signing in and signing out](10-github-by-hand.md#signing-in-and-signing-out).
 
+### 7. Hardened containers
+
+The containers themselves are locked down as far as the demo allows (details in
+[03 - The compose file](03-docker-compose-file.md#the-security-settings)):
+
+| Setting | Effect |
+|---|---|
+| Fixed image versions (`nginx:1.30`, `mysql:8.4`, `adminer:6`, `busybox:1.37`) | Every run uses the same, tested programs |
+| `security_opt: no-new-privileges:true` on every service | No program inside a container can give itself more rights |
+| `read_only: true` on the worker | Its files cannot be changed |
+| `:ro` on both bind mounts | The containers cannot change the project's files |
+| No `ports:` for `db` | The database cannot be reached from outside |
+| `nginx/security.conf` | The NGINX version is hidden and four security headers are sent. Part 5 checks this live with `curl -sI` |
+
+### 8. The Windows launcher accepts only known options
+
+`Start-Demo.ps1` passes your options to `demo.sh` inside the VM. Before it does, it compares each
+option with the list of known options. Anything else (for example a typing mistake, or text that
+tries to run another command) stops the launcher with a message. Nothing is sent to the VM.
+
+### 9. The GitHub project
+
+| Protection | Effect |
+|---|---|
+| Secret scanning with push protection | GitHub refuses an upload that contains a known type of key or token |
+| Branch rule for `main` | `main` cannot be deleted and cannot be force-pushed, so its history is safe |
+| Dependabot alerts and updates | Warnings about known problems in the actions and images, and monthly update suggestions |
+| Private vulnerability reporting | Anyone can report a security problem privately (Security tab → **Report a vulnerability**) |
+| Pinned actions, read-only permissions | The automatic tests cannot change the project, and their code cannot change unnoticed |
+
+Everything in one place, plus the choices that are made only for the demo: [SECURITY.md](../SECURITY.md).
+
 ---
 
 ## Cleaning up more, by hand
@@ -111,7 +143,7 @@ These commands remove more than the demo does. Use them only if you really want 
 | Goal | Command | Where |
 |---|---|---|
 | Remove this project's containers, network and volume | `docker compose down --volumes --remove-orphans` | VM, in `~/compose-demo` |
-| Remove the 4 images (they must be downloaded again next time) | `docker image rm nginx:latest mysql:8.4 adminer:latest busybox:latest` | VM |
+| Remove the 4 images (they must be downloaded again next time) | `docker image rm nginx:1.30 mysql:8.4 adminer:6 busybox:1.37` | VM |
 | Remove the backups made by the launcher | `rm -rf ~/compose-demo-backups` (look inside first!) | VM |
 | Sign out of GitHub on this VM, completely (if you used `--stay-signed-in`, or stopped before Part 13) | `./demo.sh --logout` (or `Start-Demo.bat --logout` on Windows) | VM |
 | Cancel the GitHub CLI key on GitHub itself (all devices) | <https://github.com/settings/applications> → **GitHub CLI** → **Revoke access** | Browser |

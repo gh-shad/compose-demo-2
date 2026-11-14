@@ -30,9 +30,11 @@ An **image** is the **recipe** or **template** for a container. It is a read-onl
 From one image you can start many containers, like many cakes from one recipe.
 Images are downloaded from **Docker Hub**, an online library of images.
 
-*In the demo:* `nginx:latest`, `mysql:8.4`, `adminer:latest` and `busybox:latest`.
+*In the demo:* `nginx:1.30`, `mysql:8.4`, `adminer:6` and `busybox:1.37`.
 The part after the colon (`:8.4`, `:latest`) is the **tag**: it chooses the version.
 `latest` is simply the default tag name. It does not promise the newest version.
+This project uses **fixed versions** (this is called *pinning*): the demo works the same way
+every time, and Dependabot suggests newer versions as pull requests (see [SECURITY.md](../SECURITY.md)).
 
 ### Container vs virtual machine (VM)
 

@@ -58,6 +58,7 @@ All options: [README, section 10.8](../README.md#108-all-options).
 |---|---|
 | `docker compose version` | Shows the Compose version |
 | `docker compose config --quiet` | Checks the compose file (no output = no mistakes) |
+| `docker compose config --images` | Lists the images of the file, with their versions |
 | `docker compose pull` | Downloads all images in the file |
 | `docker compose up -d` | Creates the network and volume, starts all containers in the background |
 | `docker compose up -d --scale worker=3` | Runs 3 copies of the `worker` service |
@@ -109,6 +110,7 @@ All options: [README, section 10.8](../README.md#108-all-options).
 | `cat <file>` | Prints a file |
 | `ls -la <folder>` | Lists a folder, including hidden files, with details |
 | `curl -s <address> -o <file>` | Downloads a web page into a file (`-s` = silent) |
+| `curl -sI <address>` | Shows only the headers of a page (`-I`), for example the security headers |
 | `grep -o '<pattern>' <file>` | Finds text in a file (`-o` = print only the matching part) |
 | `sed -i 's#old#new#g' <file>` | Replaces text inside a file (`-i` = change the file itself, `g` = every match) |
 | `echo "<text>" >> <file>` | Adds a line at the end of a file (`>>` = append) |
@@ -118,6 +120,7 @@ All options: [README, section 10.8](../README.md#108-all-options).
 | `rm -rf <folder>` | Deletes a folder and everything inside it (careful!) |
 | `hostname -I` | Shows the computer's IP addresses |
 | `tar -cf <file>.tar -C <folder> .` / `tar -xf <file>.tar` | Packs / unpacks many files into / from one file |
+| `python3 .github/scripts/check-links.py` | Checks every link in the documentation |
 
 ## Git
 

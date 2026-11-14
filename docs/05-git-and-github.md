@@ -73,7 +73,7 @@ shows its top. This file is saved and uploaded together with the project.
 To show how Git notices changes, the script adds one line to `results/run-history.md`:
 
 ```text
-| 13 Nov 2026, 14:05:09 | 15 of 15 checks passed | GitHub Codespaces |
+| 13 Nov 2026, 14:05:09 | 17 of 17 checks passed | GitHub Codespaces |
 ```
 
 `git diff` shows it with a `+`. `git commit -am "Record demo run on ..."` saves it
@@ -179,7 +179,7 @@ The file `.github/workflows/demo-test.yml` tells GitHub what to do **after every
 
 | Job | Runs on | Steps |
 |---|---|---|
-| **Check the files** | Ubuntu | Downloads the project (`actions/checkout`), checks `demo.sh` with **ShellCheck** (finds mistakes in shell scripts), checks the compose file with `docker compose config --quiet` |
+| **Check the files** | Ubuntu | Downloads the project (`actions/checkout`), checks `demo.sh` with **ShellCheck** (finds mistakes in shell scripts), checks the compose file with `docker compose config --quiet`, and checks every documentation link with `.github/scripts/check-links.py` |
 | **Run the whole Docker demo** | Ubuntu | Runs `bash demo.sh --fast --no-git`: Parts 1 to 10 with the **real** images. Then it shows `results/latest-run.md` on the run's **summary page**, and saves it as a downloadable **artifact** called `demo-results` |
 | **Check the Windows launcher** | Windows | Checks `Start-Demo.ps1` for mistakes with **Windows PowerShell 5.1** |
 
@@ -190,7 +190,23 @@ The file `.github/workflows/demo-test.yml` tells GitHub what to do **after every
 | A job → a step | Its complete output, every command and every explanation |
 
 `permissions: contents: read` means the tests may only **read** the project. They never upload anything.
+Every outside action is **pinned** to an exact version by its full commit ID, and the download
+keeps no key (`persist-credentials: false`). The tests also run for every **pull request**.
 In a **new fork**, open the Actions tab once and click **I understand my workflows, go ahead and enable them**.
+
+## Dependabot: update suggestions
+
+`.github/dependabot.yml` asks **Dependabot**, GitHub's update robot, to check once a month for
+newer versions of the actions, the Docker images and the Codespaces features. Each update arrives
+as a **pull request** in the **Pull requests** tab, and the automatic tests run on it.
+
+| The tests on the pull request | What to do |
+|---|---|
+| Green (passing) | The update works with the demo: open it and click **Merge pull request** |
+| Red (failing) | The update would break the demo: do not merge it, and look at the test log |
+
+Dependabot also sends **alerts** (Security tab) when a known security problem is found in one of
+these parts. More: [SECURITY.md](../SECURITY.md#updates-dependabot).
 
 ---
 

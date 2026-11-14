@@ -1,0 +1,25 @@
+# CITATION.cff - how to cite this project in a report or paper.
+# GitHub shows a "Cite this repository" button on the project page because of this file.
+cff-version: 1.2.0
+message: "If you use this project in your work, please cite it as below."
+type: software
+title: "Docker Compose Demo: Running Multi-Container Applications"
+abstract: >-
+  A fully automatic, narrated classroom demonstration of Docker Compose, Git and GitHub.
+  One script starts a four-container application (NGINX, MySQL, Adminer, BusyBox), explains
+  every command in simple English, checks every result, cleans up safely, writes a results
+  report, uploads it to the user's own GitHub account, verifies the upload and signs out again.
+authors:
+  - given-names: "Mohamed Shadhil"
+    family-names: "H"
+version: "2.1"
+date-released: "2026-11-15"
+license: MIT
+repository-code: "https://github.com/gh-shad/compose-demo-2"
+keywords:
+  - docker
+  - docker-compose
+  - git
+  - github
+  - education
+  - tutorial

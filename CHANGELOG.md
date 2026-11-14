@@ -3,6 +3,38 @@
 All notable changes to this project, newest first.
 The project uses simple version numbers: a new number for every finished stage.
 
+## [2.1] - November 2026: security review
+
+A review of every file, configuration and dependency, with these improvements.
+
+### Added
+- `SECURITY.md`: every protection, the demo-only choices, and how to report a problem privately.
+- `nginx/security.conf`: NGINX hides its version and sends four security headers
+  (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Content-Security-Policy`).
+- A new check in Part 5: `curl -sI` shows the security headers, and the check fails if they are missing.
+- `.github/dependabot.yml`: monthly update suggestions for the actions, images and Codespaces features.
+- `.github/scripts/check-links.py`: every documentation link is checked after every upload.
+- `.editorconfig`, and `CITATION.cff` (the **Cite this repository** button).
+- An exercise and new questions about the security settings in the teaching guide.
+- GitHub settings: branch protection for `main`, Dependabot alerts and security updates,
+  and private vulnerability reporting.
+
+### Changed
+- Fixed image versions instead of `latest`: `nginx:1.30` (stable), `adminer:6`, `busybox:1.37`
+  (stable). `mysql:8.4` stays (long-term support). The script reads the images from the compose
+  file (`docker compose config --images`), so the two can never disagree.
+- Every service has `security_opt: no-new-privileges:true`, and the worker is `read_only`.
+- `docker-compose.yml` has a fixed project name (`name: compose-demo`): the clean up checks now
+  find the right containers in any folder, for example after a ZIP download.
+- GitHub Actions: `actions/checkout` v7.0.1 and `actions/upload-artifact` v7.0.2, pinned to their
+  full commit IDs, with `persist-credentials: false`, time limits for every job, and `concurrency`.
+- `Start-Demo.ps1` accepts only known `demo.sh` options, and opens only checked GitHub addresses.
+- `.gitignore` also keeps keys, certificates and tokens out; `.gitattributes` marks pictures as binary.
+
+### Fixed
+- After an update from Windows, the documentation in the VM showed the example address again,
+  so Git reported changes that were not real. The update now puts the real address back.
+
 ## [2.0] - November 2026: complete public project
 
 ### Added

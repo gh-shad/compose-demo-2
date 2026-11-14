@@ -88,7 +88,7 @@ write_files:
       usermod -aG docker ubuntu
 
       # 3. Download every image now, so the live demo works even without Wi-Fi
-      for img in nginx:latest mysql:8.4 adminer:latest busybox:latest; do
+      for img in nginx:1.30 mysql:8.4 adminer:6 busybox:1.37; do
         retry 5 docker pull "$img"
       done
 
@@ -103,7 +103,7 @@ write_files:
         echo "Compose: $(docker compose version --short)"
         echo "Git:     $(git --version)"
         echo "gh:      $(gh --version | head -1)"
-        echo "Images:  nginx:latest mysql:8.4 adminer:latest busybox:latest"
+        echo "Images:  nginx:1.30 mysql:8.4 adminer:6 busybox:1.37"
         echo "Folder:  /home/ubuntu/compose-demo"
         echo "Next:    put the project in ~/compose-demo (Start-Demo.bat does this), then: cd ~/compose-demo && ./demo.sh"
       } > /home/ubuntu/LAB-READY.txt

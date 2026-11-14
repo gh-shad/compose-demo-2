@@ -1,10 +1,18 @@
 # =============================================================================
 #  GitHub Actions: automatic tests
 #  -----------------------------------------------------------------------------
-#  After every upload (push) to the main branch, GitHub starts fresh computers
-#  and tests this project. You can also start it by hand: Actions tab ->
-#  "Demo test" -> "Run workflow". Everything is explained in
-#  docs/05-git-and-github.md
+#  After every upload (push) to the main branch, and for every pull request,
+#  GitHub starts fresh computers and tests this project. You can also start it
+#  by hand: Actions tab -> "Demo test" -> "Run workflow". Everything is
+#  explained in docs/05-git-and-github.md
+#
+#  Safety rules used in this file (see SECURITY.md):
+#   - permissions: the jobs may only READ the project. They cannot change it.
+#   - every outside action is pinned to an exact, checked version (a full
+#     commit ID), so the code that runs cannot change without us noticing.
+#     Dependabot suggests updates (.github/dependabot.yml).
+#   - persist-credentials: false: the download does not keep GitHub's key.
+#   - timeout-minutes: a job that hangs is stopped instead of running on.
 # =============================================================================
 name: Demo test
 
@@ -17,13 +25,21 @@ on:
 permissions:
   contents: read
 
+# A newer run for the same branch replaces an older one that is still running.
+concurrency:
+  group: demo-test-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check-files:
     name: Check the files
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Download the project
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Check demo.sh for mistakes (ShellCheck)
         run: shellcheck --severity=warning demo.sh
@@ -31,37 +47,50 @@ jobs:
       - name: Check docker-compose.yml
         run: docker compose config --quiet
 
+      - name: Check every link in the documentation
+        run: python3 .github/scripts/check-links.py
+
   run-demo:
     name: Run the whole Docker demo
-    needs: check-files
     runs-on: ubuntu-latest
+    needs: check-files
     timeout-minutes: 20
     steps:
       - name: Download the project
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - name: Run demo.sh (fast mode, Docker parts + clean up)
+      - name: Run demo.sh (fast mode, without Git and GitHub)
         run: bash demo.sh --fast --no-git
 
       - name: Show the results on the summary page of this run
         if: always()
         run: |
-          if [ -f results/latest-run.md ]; then cat results/latest-run.md >> "$GITHUB_STEP_SUMMARY"; fi
+          if [ -f results/latest-run.md ]; then
+            cat results/latest-run.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No results report was written." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Save the results report as a downloadable file
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: demo-results
           path: results/latest-run.md
           if-no-files-found: ignore
+          retention-days: 30
 
   check-windows-launcher:
     name: Check the Windows launcher
     runs-on: windows-latest
+    timeout-minutes: 10
     steps:
       - name: Download the project
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Check Start-Demo.ps1 with Windows PowerShell 5.1
         shell: powershell

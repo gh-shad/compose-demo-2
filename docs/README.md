@@ -36,6 +36,13 @@ flowchart LR
 | [08 - Clean up and safety](08-cleanup-and-safety.md) | What the demo creates, removes and protects |
 | [09 - Troubleshooting](09-troubleshooting.md) | Problems, fixes, questions and answers |
 
+## Security
+
+| Guide | What is inside |
+|---|---|
+| [SECURITY.md](../SECURITY.md) | Every protection of the project, the demo-only choices, and how to report a problem privately |
+| [08 - Clean up and safety](08-cleanup-and-safety.md) | What the demo creates, removes and protects, step by step |
+
 ## For teachers
 
 | Guide | What is inside |

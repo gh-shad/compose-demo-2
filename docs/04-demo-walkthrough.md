@@ -83,12 +83,13 @@ and the **volume** (the locker).
 
 | Command | What it does | What to look at |
 |---|---|---|
-| `cat docker-compose.yml` | Prints the content of the file | The whole application in about 40 lines |
-| *(highlighted lines)* | The script shows the important lines one by one, with their line numbers, and explains each | `ports`, the `html` bind mount, `depends_on`, the password, the volume |
+| `cat docker-compose.yml` | Prints the content of the file | The whole application in about 50 lines |
+| *(highlighted lines)* | The script shows the important lines one by one, with their line numbers, and explains each | `name`, the fixed image versions, `ports`, the `html` bind mount, the security settings, `depends_on`, the password, the volume, `read_only` |
 | `docker compose version` | Shows the installed Docker Compose version | Version 2 or newer (`docker compose` with a space) |
 
-Three updates compared to older material are explained: `docker compose` instead of
-`docker-compose`, no `version:` line, and MySQL 8.4 instead of 5.7.
+Four updates compared to older material are explained: `docker compose` instead of
+`docker-compose`, no `version:` line, MySQL 8.4 instead of 5.7, and the safety settings
+(fixed image versions, the `no-new-privileges` lock, the read-only worker, security headers).
 Full line-by-line explanation: [03 - The compose file](03-docker-compose-file.md).
 
 ## Part 5 - Start the whole app (2 minutes)
@@ -98,8 +99,10 @@ Full line-by-line explanation: [03 - The compose file](03-docker-compose-file.md
 | `docker compose up -d` | Reads the file, creates the network and the volume, starts all 4 containers. `-d` = in the background | Network and volume **Created**, then each container **Started**, the database first |
 | `docker compose ps` | Lists this project's containers | 4 lines, STATUS **Up**, PORTS `0.0.0.0:8080->80/tcp` and `0.0.0.0:8081->8080/tcp` |
 | `curl -s http://localhost:8080 -o <temp>/page.html && grep -o '<title>.*</title>' <temp>/page.html` | `curl` downloads the web page into the temporary folder, `grep` finds its title | `<title>Docker Compose Demo</title>` |
+| `curl -sI http://localhost:8080 \| grep -i -E '^(server\|x-content-type-options\|x-frame-options\|referrer-policy\|content-security-policy):'` | `curl -I` asks only for the **headers** (the extra information sent with a page), `grep` shows the security ones | `Server: nginx` **without** a version number, plus the four security headers from `nginx/security.conf` |
 
-**Checks recorded:** all 4 containers running · the website answered on port 8080.
+**Checks recorded:** all 4 containers running · the website answered on port 8080 · the website
+sends security headers and hides the NGINX version.
 
 **In the browser:** `http://<VM-address>:8080` shows the page from `html/index.html`.
 (The Windows launcher opens it by itself.)
@@ -171,7 +174,7 @@ Full details: [08 - Clean up and safety](08-cleanup-and-safety.md).
 |---|---|---|
 | `docker compose down --volumes --remove-orphans` | Makes sure that this project's containers, network and volume are gone. `--remove-orphans` also removes old containers of this project that are no longer in the file | Nothing (or `Removed`) |
 | `docker ps -a --filter label=com.docker.compose.project=compose-demo` (and the same for `docker network ls` and `docker volume ls`) | Lists **only** things with this project's label | Three lists with only their headings |
-| `docker image ls --filter reference=nginx:latest ...` | Lists the 4 images | They are **kept on purpose** for the next run |
+| `docker image ls --filter reference=nginx:1.30 ...` | Lists the 4 images | They are **kept on purpose** for the next run |
 | `sha256sum --check --quiet <temp>/fingerprint.sha256` | Compares every project file with its fingerprint from the start | **No output** = every file is present and unchanged |
 | `ls -la <temp>` | Shows the temporary folder | `fingerprint.sha256` and `page.html` |
 | `rm -rf /tmp/compose-demo-run.XXXXXX` | Deletes the temporary folder. The script first checks that the path really is its own temporary folder and belongs to this user | — |

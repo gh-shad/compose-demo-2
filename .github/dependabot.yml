@@ -1,0 +1,37 @@
+# .github/dependabot.yml - Dependabot keeps the project's outside parts up to date.
+# Once a month it checks for newer versions and opens a pull request for each group.
+# Every pull request is tested by the "Demo test" workflow first: merge it only when
+# the test is green. Explained in SECURITY.md and docs/05-git-and-github.md.
+version: 2
+updates:
+  # The actions used by .github/workflows/demo-test.yml (pinned to exact commit IDs)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      github-actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "Update GitHub Actions"
+
+  # The Docker images in docker-compose.yml (nginx, mysql, adminer, busybox)
+  - package-ecosystem: "docker-compose"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    ignore:
+      # Stay on MySQL 8.4, a long-term support version: a new major version
+      # of a database is a bigger change that a person should decide.
+      - dependency-name: "mysql"
+        update-types: ["version-update:semver-major"]
+    commit-message:
+      prefix: "Update Docker images"
+
+  # The features of the GitHub Codespaces setup (.devcontainer/devcontainer.json)
+  - package-ecosystem: "devcontainers"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "Update Codespaces features"

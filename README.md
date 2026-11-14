@@ -3,6 +3,7 @@
 [![Demo test](https://github.com/gh-shad/compose-demo-2/actions/workflows/demo-test.yml/badge.svg)](https://github.com/gh-shad/compose-demo-2/actions/workflows/demo-test.yml)
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/gh-shad/compose-demo-2?quickstart=1)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Security policy](https://img.shields.io/badge/security-policy-informational)](SECURITY.md)
 ![Level: beginner](https://img.shields.io/badge/level-beginner-brightgreen)
 ![Explanations: simple English](https://img.shields.io/badge/explanations-simple%20English-orange)
 
@@ -100,7 +101,7 @@ Before every command, a box explains **what the command does**. After it, a box 
 | **Narrated automatic demo** | Runs 13 parts and more than 50 commands by itself, each explained in simple English | `demo.sh` |
 | **Four speeds** | Automatic, `--slow`, `--manual` (Enter before every step), `--fast` | [10.1](#101-speeds-automatic-slow-manual-fast) |
 | **Real 4-container application** | NGINX website, MySQL 8.4 database, Adminer database viewer, BusyBox worker | `docker-compose.yml` |
-| **Live checks** | Records up to 16 checks (containers running, website answers, ping, data survives, scaling, clean up, upload, sign-out...) | Final screen |
+| **Live checks** | Records up to 17 checks (containers running, website answers, security headers, ping, data survives, scaling, clean up, upload, sign-out...) | Final screen |
 | **Safe clean up** | Removes only this project's containers, network, volume and temporary files | Part 10 |
 | **File safety check** | SHA-256 fingerprints of every project file at the start and before the upload | Part 10 |
 | **Results report** | `results/latest-run.md` with every check, key results, time per part, versions | Part 11 |
@@ -113,6 +114,9 @@ Before every command, a box explains **what the command does**. After it, a box 
 | **One-click Windows launcher** | Creates the VM, copies the project, opens the browser pages, runs the demo | `Start-Demo.bat` |
 | **Automatic tests** | GitHub runs the demo after every upload and shows the report | `.github/workflows/` |
 | **Self-repair** | Re-creates missing project files. Backs up unsaved changes before an update | `demo.sh` |
+| **Security hardening** | Fixed image versions, `no-new-privileges`, read-only worker, security headers, hidden server version, checked live | `docker-compose.yml`, `nginx/` |
+| **Security policy** | What protects you, which choices are demo-only, and how to report a problem privately | [SECURITY.md](SECURITY.md) |
+| **Automatic updates** | Dependabot suggests newer actions, images and Codespaces features once a month, tested before merging | `.github/dependabot.yml` |
 
 ---
 
@@ -177,11 +181,11 @@ Your addresses, user name and commit IDs will be different.
 | Tool | Version used | What it is | What it does in this project |
 |---|---|---|---|
 | **Docker Engine** | 24 or newer | Runs containers | Runs the 4 containers |
-| **Docker Compose** | v2 (`docker compose`) | Starts many containers from one file | Starts, scales and removes the application |
-| **NGINX** | `nginx:latest` | Web server | The `web` service: shows `html/index.html` |
+| **Docker Compose** | v2 or newer (`docker compose`) | Starts many containers from one file | Starts, scales and removes the application |
+| **NGINX** | `nginx:1.30` | Web server | The `web` service: shows `html/index.html` |
 | **MySQL** | `mysql:8.4` (long-term support) | Database server | The `db` service: stores the students table |
-| **Adminer** | `adminer:latest` | Web page for databases | The `adminer` service: look inside MySQL |
-| **BusyBox** | `busybox:latest` | Tiny Linux toolbox | The `worker` service: `ping` and scaling |
+| **Adminer** | `adminer:6` | Web page for databases | The `adminer` service: look inside MySQL |
+| **BusyBox** | `busybox:1.37` | Tiny Linux toolbox | The `worker` service: `ping` and scaling |
 | **Bash** | 5.x | Linux shell | `demo.sh` is a Bash script |
 | **Git** | 2.x | Version control | Saves the project and its history |
 | **GitHub** | — | Website for Git projects | Hosts the project, forks and results |
@@ -195,6 +199,8 @@ Your addresses, user name and commit IDs will be different.
 | **SHA-256** (`sha256sum`) | — | File fingerprints | Proves that no file was damaged |
 | **Markdown, Mermaid** | — | Documentation formats | This README, the guides, the diagrams |
 | **ShellCheck, actionlint** | — | Code checkers | Find mistakes in the script and the workflow |
+| **Python 3** | 3.x | Programming language | `.github/scripts/check-links.py` checks every documentation link |
+| **Dependabot** | — | GitHub's update robot | Suggests newer versions of the actions, images and Codespaces features |
 
 ---
 
@@ -220,10 +226,10 @@ flowchart LR
 
 | Service | Image | What it does | How to reach it |
 |---|---|---|---|
-| `web` | `nginx:latest` | Shows `html/index.html` | Port **8080** |
+| `web` | `nginx:1.30` | Shows `html/index.html` | Port **8080** |
 | `db` | `mysql:8.4` | Stores data in the `db-data` volume | Only inside the network, by the name `db` |
-| `adminer` | `adminer:latest` | A web page to look inside the database | Port **8081** |
-| `worker` | `busybox:latest` | Prints a message every 5 seconds | (no port) |
+| `adminer` | `adminer:6` | A web page to look inside the database | Port **8081** |
+| `worker` | `busybox:1.37` | Prints a message every 5 seconds | (no port) |
 
 Line-by-line explanation of the file: [docs/03-docker-compose-file.md](docs/03-docker-compose-file.md).
 
@@ -447,7 +453,7 @@ On Windows, add options to the launcher: `Start-Demo.bat --slow`.
 
 | Where | What |
 |---|---|
-| **The final screen** | Every check (up to 16) with **PASSED** / **FAILED**, the execution results (page title, ping result, address of `db`, MySQL version, data before and after the restart, worker names, files checked), and the GitHub links |
+| **The final screen** | Every check (up to 17) with **PASSED** / **FAILED**, the execution results (page title, ping result, address of `db`, MySQL version, data before and after the restart, worker names, files checked), and the GitHub links |
 | [`results/latest-run.md`](results/latest-run.md) | The full report of the newest run: result, date, where it ran, every check, key results, time per part, versions |
 | [`results/run-history.md`](results/run-history.md) | One line for every run |
 | Your project on GitHub | The same two files, plus the **Actions** tab (report on the summary page, download under **Artifacts**) |
@@ -612,6 +618,7 @@ The detailed version history is in [CHANGELOG.md](CHANGELOG.md).
 | 10. Testing | Checked every version with ShellCheck, actionlint, the PowerShell parser and the cloud-init schema; ran the full demo many times with test copies of Docker Hub, GitHub and Multipass; ran every GitHub situation (new project, existing project, fork, name clash, no sign-in, Codespaces) | Reliability |
 | 11. Automatic tests | Added GitHub Actions: the real demo runs after every upload, and the report appears on the run's page | Anyone can see that it works |
 | 12. Documentation | Wrote this README, 11 guides, a teaching guide, real screenshots, and the changelog | Easy to understand, use and teach |
+| 13. Security review | Reviewed every file and the GitHub settings. Pinned the image versions and the GitHub Actions (to exact commit IDs), added `no-new-privileges`, a read-only worker, NGINX security headers with a live check, a fixed project name, an allow-list for launcher options, a security policy, Dependabot, a documentation link check, branch protection, and private vulnerability reporting | A project for others to run must be safe by default, and must stay up to date |
 
 ### How quality is checked
 
@@ -621,9 +628,12 @@ The detailed version history is in [CHANGELOG.md](CHANGELOG.md).
 | Compose file mistakes | `docker compose config --quiet` | Every upload, and every run |
 | The whole Docker demo with real images | `bash demo.sh --fast --no-git` | Every upload |
 | Windows launcher mistakes | Windows PowerShell 5.1 parser | Every upload |
-| Every result of a run | Up to 16 recorded checks + exit code | Every run |
+| Every result of a run | Up to 17 recorded checks + exit code | Every run |
 | No file damaged | SHA-256 fingerprints | Every run |
 | Upload really on GitHub | `git rev-parse HEAD` = `git ls-remote origin` | Every upload |
+| Every documentation link works | `.github/scripts/check-links.py` | Every upload (GitHub Actions) |
+| Security headers are sent | `curl -sI` in Part 5 | Every run |
+| Known security problems in dependencies | Dependabot alerts, secret scanning | All the time (GitHub) |
 
 ---
 
@@ -632,11 +642,14 @@ The detailed version history is in [CHANGELOG.md](CHANGELOG.md).
 ```text
 compose-demo/
 ├── README.md                     <- this page
+├── SECURITY.md                   <- the security policy: protections, demo-only choices, reporting
 ├── CHANGELOG.md                  <- the version history
+├── CITATION.cff                  <- how to cite this project ("Cite this repository" button)
 ├── LICENSE                       <- MIT license
 ├── demo.sh                       <- the automatic, narrated demo (Bash)
 ├── docker-compose.yml            <- the application: 4 services, 1 network, 1 volume
 ├── html/index.html               <- the web page of the web container
+├── nginx/security.conf           <- security settings for the web server (headers, hidden version)
 ├── results/
 │   ├── latest-run.md             <- the report of the newest run (written by demo.sh)
 │   └── run-history.md            <- one line per run
@@ -645,14 +658,17 @@ compose-demo/
 ├── cloud-init.yaml               <- sets up the Linux VM (Docker, Git, gh, images)
 ├── .devcontainer/
 │   └── devcontainer.json         <- settings for GitHub Codespaces
-├── .github/workflows/
-│   └── demo-test.yml             <- automatic tests on GitHub
+├── .github/
+│   ├── workflows/demo-test.yml   <- automatic tests on GitHub
+│   ├── scripts/check-links.py    <- checks every link in the documentation
+│   └── dependabot.yml            <- monthly update suggestions (actions, images, Codespaces)
 ├── docs/
 │   ├── README.md                 <- the documentation index (start here)
 │   ├── 01-setup-from-zero.md ... 11-teaching-guide.md   <- the guides
 │   └── images/                   <- the screenshots (with their own index)
-├── .gitignore                    <- files Git must never save (.env, logs, ...)
-└── .gitattributes                <- line endings for Linux and Windows files
+├── .gitignore                    <- files Git must never save (.env, keys, logs, ...)
+├── .gitattributes                <- line endings for Linux and Windows files, pictures as binary
+└── .editorconfig                 <- the same text format in every editor
 ```
 
 Every file, explained: [docs/06-files-explained.md](docs/06-files-explained.md).
@@ -671,9 +687,14 @@ Every file, explained: [docs/06-files-explained.md](docs/06-files-explained.md).
 | No passwords typed in the terminal | Sign-in with a one-time code in the browser. The key is shown only as `gho_****` |
 | Nothing stays signed in | Part 13 signs out at the end (outside Codespaces), and checks it |
 | No secrets in Git | `.gitignore` keeps `.env` files out. The demo password is only for the local demo database, which has no open port |
-| Tests can only read | The GitHub Actions workflow has `permissions: contents: read` |
+| Tests can only read | The GitHub Actions workflow has `permissions: contents: read`, actions pinned to exact commit IDs, and no stored key (`persist-credentials: false`) |
+| Hardened containers | Fixed image versions, `no-new-privileges` on every service, a read-only worker, read-only mounts, no open database port |
+| Hardened web server | `nginx/security.conf` hides the NGINX version and sends four security headers. Part 5 checks them live |
+| Only known launcher options | `Start-Demo.ps1` refuses any option it does not know, so nothing else reaches the VM |
+| Protected GitHub project | Secret scanning with push protection, Dependabot alerts and updates, private vulnerability reporting, and a rule that `main` can never be deleted or force-pushed |
 
-Details: [docs/08-cleanup-and-safety.md](docs/08-cleanup-and-safety.md).
+The full list, the demo-only choices (like the demo password) and how to report a problem:
+[SECURITY.md](SECURITY.md). More details: [docs/08-cleanup-and-safety.md](docs/08-cleanup-and-safety.md).
 
 ---
 
@@ -731,17 +752,20 @@ All screenshots are listed in [docs/images](docs/images/README.md).
 | [09 - Troubleshooting](docs/09-troubleshooting.md) | Problems, fixes, questions and answers |
 | [10 - GitHub by hand](docs/10-github-by-hand.md) | Fork, clone, change, run Compose again, push, pull, sync, sign out |
 | [11 - Teaching guide](docs/11-teaching-guide.md) | Lesson plan, questions, exercises with solutions, marking |
+| [SECURITY.md](SECURITY.md) | Every protection, the demo-only choices, and how to report a problem |
 
 ---
 
 ## 21. Version history, license and credits
 
 - **Version history:** [CHANGELOG.md](CHANGELOG.md)
+- **Security policy:** [SECURITY.md](SECURITY.md)
+- **How to cite:** [CITATION.cff](CITATION.cff) (GitHub shows a **Cite this repository** button)
 - **License:** [MIT](LICENSE): free to use, copy, change and share, also for teaching
 - **Author:** Mohamed Shadhil H, B.Tech CSE (Cyber Security), as a classroom project on running
   multi-container applications with Docker Compose
 - **Acknowledgements:** developed with the help of Claude, an AI assistant made by Anthropic. Every
   part was tested as described in [section 15](#15-the-development-process-step-by-step).
-- **Images used:** the official Docker Hub images `nginx`, `mysql`, `adminer` and `busybox`
+- **Images used:** the official Docker Hub images `nginx:1.30`, `mysql:8.4`, `adminer:6` and `busybox:1.37`
 
 If this project helped you, give it a ⭐ on GitHub.

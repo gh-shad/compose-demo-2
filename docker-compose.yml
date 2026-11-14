@@ -1,14 +1,19 @@
+name: compose-demo
+
 services:
   web:
-    image: nginx:latest
+    image: nginx:1.30
     ports:
       - "8080:80"
     volumes:
       - ./html:/usr/share/nginx/html:ro
+      - ./nginx/security.conf:/etc/nginx/conf.d/security.conf:ro
     depends_on:
       - db
     networks:
       - app-network
+    security_opt:
+      - no-new-privileges:true
 
   db:
     image: mysql:8.4
@@ -18,21 +23,28 @@ services:
       - db-data:/var/lib/mysql
     networks:
       - app-network
+    security_opt:
+      - no-new-privileges:true
 
   adminer:
-    image: adminer:latest
+    image: adminer:6
     ports:
       - "8081:8080"
     depends_on:
       - db
     networks:
       - app-network
+    security_opt:
+      - no-new-privileges:true
 
   worker:
-    image: busybox:latest
+    image: busybox:1.37
     command: sh -c 'while true; do echo "Worker $$(hostname) is working"; sleep 5; done'
+    read_only: true
     networks:
       - app-network
+    security_opt:
+      - no-new-privileges:true
 
 networks:
   app-network:

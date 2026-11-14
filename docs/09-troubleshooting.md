@@ -29,6 +29,8 @@ Find your problem in the tables below. Every `[PROBLEM]` message of the script a
 | The browser shows nothing on port 8080 | Wrong address, or the app is not running yet | Use the address the script prints (`hostname -I`), not `localhost`. The pages only work during Parts 5 to 8 |
 | Adminer login fails | MySQL is still starting | Wait 30 seconds and try again. Server: `db`, user: `root`, password: `examplepassword` |
 | `Could not download the images` | No internet in the VM | Check your Wi-Fi, then `docker compose pull` |
+| `Downloading missing images: nginx:1.30 ...` after an update | The new version uses fixed image versions that are not in the VM yet | Normal: the first run after the update needs internet once. After that, the demo works offline again |
+| The security headers check failed | `nginx/security.conf` is missing or changed | Download the project again, or check the file with `docker compose exec web nginx -t` |
 
 ## Git and GitHub
 
@@ -89,6 +91,14 @@ No. The script explains every command before it runs it, and [02 - Concepts](02-
 
 **Does the demo change my Windows?**
 No. Everything happens inside the VM. On Windows, only Multipass is installed.
+
+**Pull requests from "dependabot" appeared in my project. What are they?**
+Update suggestions (see [05 - Dependabot](05-git-and-github.md#dependabot-update-suggestions)). Merge one only
+when its automatic test is green. Closing one is also fine: Dependabot suggests it again next month.
+
+**Is the password in docker-compose.yml a security problem?**
+Not for this demo: the database has no open door and holds no real data. A real project keeps
+passwords in a `.env` file or a secrets manager. See [SECURITY.md](../SECURITY.md#demo-only-choices-known-and-accepted).
 
 **Is it safe to run the demo many times?**
 Yes. Every run starts fresh (old demo containers are removed first), and every run cleans up

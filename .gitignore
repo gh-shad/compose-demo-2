@@ -2,6 +2,14 @@
 # Secret settings (real projects keep passwords in a .env file)
 .env
 .env.*
+# Keys, certificates and other secrets
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+*.token
 # Log files
 *.log
 # Temporary files from editors and operating systems
@@ -11,3 +19,4 @@
 Thumbs.db
 # Update packages used by the Windows launcher
 *.tar
+*.bundle

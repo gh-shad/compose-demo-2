@@ -4,3 +4,7 @@
 *            text=auto eol=lf
 *.bat        text eol=crlf
 *.ps1        text eol=crlf
+# Pictures are binary: Git must never change a single byte in them.
+*.png        binary
+*.jpg        binary
+*.ico        binary

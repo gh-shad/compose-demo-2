@@ -31,6 +31,17 @@ function Stop-WithMessage($text) {
   exit 1
 }
 
+# Safety: only the known demo.sh options are passed on to the VM. Anything else is refused,
+# so no other text can ever reach the VM's command line.
+$Allowed = @("--manual", "-m", "--fast", "-f", "--slow", "-s", "--keep", "-k", "--setup",
+             "--no-git", "--git-only", "--no-push", "--push", "--logout",
+             "--stay-signed-in", "--logout-after", "--help", "-h")
+foreach ($option in $args) {
+  if ($Allowed -cnotcontains $option) {
+    Stop-WithMessage "Unknown option: '$option'. Allowed: $($Allowed -join ' ')"
+  }
+}
+
 Write-Host ""
 Write-Host "  ==================================================" -ForegroundColor Blue
 Write-Host "    Docker Compose Demo  -  Windows launcher" -ForegroundColor White
@@ -126,7 +137,7 @@ if ($browserJob) {
   Remove-Job $browserJob -Force -ErrorAction SilentlyContinue
 }
 $ghUrl = multipass exec $VmName -- cat /home/ubuntu/.compose-demo-github-url 2>$null | Select-Object -First 1
-if ($ghUrl -and $ghUrl.Trim().StartsWith("https://github.com/")) {
+if ($ghUrl -and $ghUrl.Trim() -match '^https://github\.com/[A-Za-z0-9-]+/[A-Za-z0-9._-]+$') {
   Info "Opening your GitHub project page: $($ghUrl.Trim())"
   Start-Process $ghUrl.Trim()
 }
