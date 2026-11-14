@@ -38,7 +38,7 @@ services:
       - no-new-privileges:true
 
   worker:
-    image: busybox:1.37
+    image: busybox:1.38
     command: sh -c 'while true; do echo "Worker $$(hostname) is working"; sleep 5; done'
     read_only: true
     networks:
