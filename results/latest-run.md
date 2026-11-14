@@ -6,11 +6,11 @@
 | | |
 |---|---|
 | **Result** | PASSED: all 12 checks passed |
-| **Date** | 14 Nov 2026, 22:55:44 IST |
+| **Date** | 15 Nov 2026, 00:39:49 IST |
 | **Where it ran** | Multipass VM 'compose-lab' |
 | **GitHub account** | gh-shad |
-| **Mode** | auto |
-| **Time until this report** | 2 min 12 s |
+| **Mode** | fast |
+| **Time until this report** | 0 min 44 s |
 
 ## Checks
 
@@ -26,7 +26,7 @@
 | 8 | The data survived: both students are still there after down and up | PASSED |
 | 9 | Scaled the worker service to 3 running copies | PASSED |
 | 10 | Clean up: no containers, networks or volumes of this project are left | PASSED |
-| 11 | Safety check: all 25 project files are present and unchanged (SHA-256) | PASSED |
+| 11 | Safety check: all 40 project files are present and unchanged (SHA-256) | PASSED |
 | 12 | Clean up: the temporary folder was deleted | PASSED |
 
 ## Key results
@@ -41,22 +41,22 @@
 | Students found after down + up (volume test) | 2 |
 | Worker copies after scaling | compose-demo-worker-1 compose-demo-worker-2 compose-demo-worker-3  |
 | Other containers on this computer | 0 (not touched) |
-| Project files checked with SHA-256 | 25, all unchanged |
+| Project files checked with SHA-256 | 40, all unchanged |
 
 ## Time per part
 
 | Part | Seconds |
 |---|---|
-| Part 1 - Opening | 2 |
-| Part 2 - The problem | 5 |
-| Part 3 - Three building blocks | 3 |
-| Part 4 - The YAML file | 7 |
-| Part 5 - Start the whole app | 13 |
-| Part 6 - Containers talking to each other | 17 |
-| Part 7 - Data survives a restart | 33 |
-| Part 8 - Scaling and logs | 14 |
-| Part 9 - Stop and remove the app | 14 |
-| Part 10 - Clean up and safety check | 13 |
+| Part 1 - Opening | 0 |
+| Part 2 - The problem | 0 |
+| Part 3 - Three building blocks | 0 |
+| Part 4 - The YAML file | 0 |
+| Part 5 - Start the whole app | 1 |
+| Part 6 - Containers talking to each other | 8 |
+| Part 7 - Data survives a restart | 15 |
+| Part 8 - Scaling and logs | 7 |
+| Part 9 - Stop and remove the app | 11 |
+| Part 10 - Clean up and safety check | 0 |
 
 ## Versions
 
