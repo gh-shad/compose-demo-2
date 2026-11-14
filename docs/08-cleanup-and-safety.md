@@ -30,7 +30,7 @@ your own files and data.
 | `~/.compose-demo-github-url` (one line: your project's address) | VM | Part 12 | Replaced at the next run | The launcher reads it to open your GitHub page |
 | The 4 images | Docker | `cloud-init.yaml` | **Kept** | Needed for the next run, even without internet |
 | Backups `~/compose-demo-backups/<date-time>/` | VM | `--import-update`, only if needed | **Kept** | They protect your unsaved changes |
-| GitHub sign-in: gh's key in `~/.config/gh/hosts.yml`, Git's setting in `~/.gitconfig` | VM / Linux | The one-time sign-in | **Kept** until you run `./demo.sh --logout` | So the next run can upload again. On shared computers, sign out (see below) |
+| GitHub sign-in: gh's key in `~/.config/gh/hosts.yml`, Git's setting in `~/.gitconfig` | VM / Linux | The sign-in in "Getting ready" | **Part 13** (after the upload), then checked | Nobody who uses the computer next can use your account. Kept only with `--stay-signed-in` |
 
 ---
 
@@ -98,8 +98,8 @@ how many other containers exist, and that they were left alone.
 
 Signing in stores a key on the computer. The script never shows it in full (`gh auth status`
 prints `gho_****`), never writes it into the project, and never uploads it. `.gitignore` also keeps
-`.env` files out of Git. `./demo.sh --logout` removes the key and Git's GitHub settings, and then
-**checks** that you are signed out. Why signing out on the website is not enough:
+`.env` files out of Git. **Part 13** removes the key and Git's GitHub settings after the upload, and
+then **checks** that you are signed out (`./demo.sh --logout` does the same at any time). Why signing out on the website is not enough:
 [10 - Signing in and signing out](10-github-by-hand.md#signing-in-and-signing-out).
 
 ---
@@ -113,7 +113,7 @@ These commands remove more than the demo does. Use them only if you really want 
 | Remove this project's containers, network and volume | `docker compose down --volumes --remove-orphans` | VM, in `~/compose-demo` |
 | Remove the 4 images (they must be downloaded again next time) | `docker image rm nginx:latest mysql:8.4 adminer:latest busybox:latest` | VM |
 | Remove the backups made by the launcher | `rm -rf ~/compose-demo-backups` (look inside first!) | VM |
-| Sign out of GitHub on this VM, completely | `./demo.sh --logout` (or `Start-Demo.bat --logout` on Windows) | VM |
+| Sign out of GitHub on this VM, completely (if you used `--stay-signed-in`, or stopped before Part 13) | `./demo.sh --logout` (or `Start-Demo.bat --logout` on Windows) | VM |
 | Cancel the GitHub CLI key on GitHub itself (all devices) | <https://github.com/settings/applications> → **GitHub CLI** → **Revoke access** | Browser |
 | Delete the whole VM | `multipass delete compose-lab` then `multipass purge` | Windows / macOS / Linux |
 | Delete your project on GitHub | On github.com: your project → **Settings** → bottom of the page → **Delete this repository**. This cannot be undone | Browser |

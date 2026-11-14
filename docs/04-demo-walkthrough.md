@@ -11,7 +11,7 @@ This page follows the demo from the first screen to the last. For each part you 
 
 | On the screen | Meaning |
 |---|---|
-| `PART 5 of 12 - Start the whole app` | The title of a new part. The screen is cleared first. |
+| `PART 5 of 13 - Start the whole app` | The title of a new part. The screen is cleared first. |
 | **EXPLANATION** box (blue) | What is happening, in simple English. |
 | **NEXT COMMAND** box (blue) | What the next command does, **before** it runs. |
 | Green line starting with `$` | The real command. Everything below it is its real output. |
@@ -33,7 +33,8 @@ flowchart LR
     P9 --> P10["10 Clean up + safety check"]
     P10 --> P11["11 Git"]
     P11 --> P12["12 GitHub"]
-    P12 --> F["Final confirmation"]
+    P12 --> P13["13 Sign out"]
+    P13 --> F["Final confirmation"]
 ```
 
 ---
@@ -220,13 +221,47 @@ Every Git command is explained in detail in [05 - Git and GitHub](05-git-and-git
 
 **Check recorded:** uploaded and verified (both commit IDs match).
 
-With `--logout-after`, the script signs out of GitHub right after the upload (see [10](10-github-by-hand.md#signing-in-and-signing-out)).
 How the script decides where to upload, and why it never overwrites anything:
 [05 - Git and GitHub](05-git-and-github.md#how-the-script-decides-where-to-upload).
 
+## Part 13 - Sign out of GitHub (1.5 minutes)
+
+The upload is finished, so the last step of a safe GitHub session is to sign out again. While a
+computer is signed in, anyone who uses it next could upload to your account or read your private
+projects. On a shared computer, such as a school lab, signing out is a must.
+
+First, a box explains that **three separate places** can keep you signed in:
+
+1. the GitHub CLI's secret key (a **token**) in `~/.config/gh/hosts.yml`,
+2. Git's setting to use that key, written into `~/.gitconfig` by `gh auth setup-git`,
+3. GitHub itself, which accepts the key until you **revoke** it on the website.
+
+| Command | What it does | What you see |
+|---|---|---|
+| `gh auth logout --hostname github.com --user <you>` | Deletes the saved key of your account from this computer (once for every signed-in account) | `✓ Logged out of github.com account <you>` |
+| `git config --global --remove-section credential.https://github.com ; ... gist.github.com` | Deletes the lines that tell Git to use gh's key | Nothing |
+| `sed -i '/github\.com/d' ~/.git-credentials` | Only if that file exists: deletes the github.com lines (saved passwords in plain text) | Nothing |
+| `gh auth status` | Checks the result | `You are not logged into any GitHub hosts` |
+
+Then a yellow box shows **the last step, on the GitHub website**: open
+<https://github.com/settings/applications> → **GitHub CLI** → **Revoke access**; on a shared
+computer, also sign out of github.com in the browser; and on Windows, remove
+`git:https://github.com` from the **Credential Manager** if you ever used Git directly on Windows.
+
+**Check recorded:** signed out of GitHub on this computer (GitHub CLI and Git).
+
+| Situation | What Part 13 does |
+|---|---|
+| Normal run | Signs out as above |
+| `--stay-signed-in` | Skips the sign-out, and shows how to sign out later: `./demo.sh --logout` |
+| GitHub Codespaces | Runs `gh auth status` and explains that a codespace uses a temporary key that stops working when the codespace is stopped or deleted. Nothing is stored on your own computer |
+| Never signed in | Checks and confirms that there is nothing to remove |
+
+You can do the same at any time, without the demo: `./demo.sh --logout` (Windows: `Start-Demo.bat --logout`).
+
 ## The end: summary and final confirmation
 
-1. **Summary**: a short closing speech and two tables of every Docker and Git command used.
+1. **Summary**: a short closing speech and two tables of every Docker, Git and GitHub command used.
 2. **Final confirmation screen**:
    - the title **SUCCESS - THE WHOLE PROCESS IS COMPLETE** (green), or
      **FINISHED WITH n PROBLEM(S)** (red),
@@ -236,7 +271,8 @@ How the script decides where to upload, and why it never overwrites anything:
    - the place of the full report: `results/latest-run.md`,
    - if uploaded: the project page, the **results report** and **run history** on GitHub, the
      automatic tests page, the verified commit ID, and the `git clone` command,
-   - whether this computer is still signed in to GitHub, and how to sign out (`./demo.sh --logout`),
+   - the sign-in status: **[OK] This computer is signed out of GitHub.** (or, with
+     `--stay-signed-in`, a note that it is still signed in and how to sign out: `./demo.sh --logout`),
    - the total time.
 
 The script's **exit code** is `0` when every check passed, and `1` when one failed.

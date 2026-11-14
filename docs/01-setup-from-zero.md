@@ -178,7 +178,7 @@ The demo script now checks everything and prints one `[OK]` line for each check:
 Docker, Docker Compose, the compose file, the images, Git, and a **safety fingerprint** of all
 project files (used again in Part 10).
 
-#### Step 10: The one-time GitHub login
+#### Step 10: The GitHub sign-in with a one-time code
 
 The first time, the script asks:
 
@@ -203,19 +203,24 @@ in `.github/workflows/` (the automatic tests). If you logged in with an older ve
 project, the script asks for this permission once, in a box called **ONE-TIME GITHUB PERMISSION**.
 The steps are the same.
 
-**The login is remembered.** The next runs never ask again.
+**At the end, Part 13 signs out again.** So the next run asks for a new one-time code if you
+want to upload again. That is the safe default for school and shared computers. On your own
+private computer, you can keep the sign-in with `Start-Demo.bat --stay-signed-in`; then the
+next runs do not ask again.
 
 #### Step 11: Press Enter, then watch
 
 When you see **Press Enter to start the demo**, press **Enter**. From now on, everything is automatic:
 
-- Every part starts on a clean screen with a title like `PART 5 of 12 - Start the whole app`.
+- Every part starts on a clean screen with a title like `PART 5 of 13 - Start the whole app`.
 - A **NEXT COMMAND** box explains the next command in simple English.
 - The green line starting with `$` is the real command. Below it is its real output.
 - A **LOOK AT THE RESULT** box explains what the output means.
 - In **Part 5**, the website and Adminer **open in your browser by themselves**.
   Click back on the black window to keep watching.
-- At the end, the **final confirmation screen** lists every check, and your GitHub page opens.
+- In **Part 12**, the project is uploaded and the upload is checked. Your GitHub page opens.
+- In **Part 13**, the computer signs out of GitHub again.
+- At the end, the **final confirmation screen** lists every check and the links.
 
 While it runs: **Enter** skips a pause, **p** pauses, **Ctrl+C** stops.
 
@@ -233,6 +238,7 @@ The last screen looks like this:
     [PASSED] The website answered on port 8080
     ...
     [PASSED] Uploaded to GitHub and verified: GitHub has commit 1a2b3c4
+    [PASSED] Signed out of GitHub on this computer (GitHub CLI and Git)
 
   Execution results:
     Website (web container, port 8080):             answered with the page title 'Docker Compose Demo'
@@ -244,11 +250,15 @@ The last screen looks like this:
   The project and the results have been uploaded to GitHub, and the upload was verified.
     Project page:      https://github.com/<your-username>/compose-demo
     Results report:    https://github.com/<your-username>/compose-demo/blob/main/results/latest-run.md
+    Run history:       https://github.com/<your-username>/compose-demo/blob/main/results/run-history.md
     Automatic tests:   https://github.com/<your-username>/compose-demo/actions
+    Latest commit:     1a2b3c4  (GitHub and this computer match)
+    Download it with:  git clone https://github.com/<your-username>/compose-demo.git
 
-  NOTE: This computer is still signed in to GitHub as <your-username>. ...
-  NOTE: On a shared computer, sign out completely with:  ./demo.sh --logout
+  [OK] This computer is signed out of GitHub.
 ```
+
+A picture of the real screen is in the [README](../README.md#4-screenshots).
 
 ---
 
@@ -257,8 +267,9 @@ The last screen looks like this:
 1. Double-click **Start-Demo.bat**.
 2. Press **Enter** when it says **Press Enter to start the demo**.
 
-That is all. The VM already exists, the login is remembered, and the project folder in the VM
-is updated with the files from your Windows folder (your Git history is kept).
+That is all. The VM already exists, and the project folder in the VM is updated with the files
+from your Windows folder (your Git history is kept). If you want the upload, type **y** at the
+question and sign in with a new one-time code, because the last run signed out at the end.
 
 ---
 
@@ -323,6 +334,9 @@ in your browser during Parts 5 to 8.
 ---
 
 ### Part E: Sign out of GitHub
+
+**Part 13 of the demo does this for you at the end of every run.** You only need this part if
+you used `--stay-signed-in`, or if a run was stopped before Part 13.
 
 Signing out on the github.com website does **not** sign out the VM: the GitHub CLI inside the VM
 keeps its own key. To sign out completely, open a terminal in the project folder and type:

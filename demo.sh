@@ -7,22 +7,23 @@
 #
 #    Parts 1-9  : Docker Compose (start the app, network, volume, scaling, stop)
 #    Part 10    : Clean up + safety check (before anything is uploaded)
-#    Part 11    : Git (save the project and its history)
+#    Part 11    : Git (save the project, its history and the results report)
 #    Part 12    : GitHub (upload the project and verify the upload)
+#    Part 13    : Sign out of GitHub again (the safe end of every GitHub session)
 #    At the end : a final confirmation screen with the result of every check
 #
 #  Usage:   ./demo.sh             automatic (the normal way: press Enter once)
 #           ./demo.sh --slow      automatic, with more time to read each step
 #           ./demo.sh --manual    you press Enter before every step
 #           ./demo.sh --fast      quick run, no pauses (also used by the automatic tests)
-#           ./demo.sh --setup     one-time checks + GitHub login, then stop
+#           ./demo.sh --setup     only the checks + GitHub sign-in, then stop
 #           ./demo.sh --keep      leave the containers running (skips the Docker clean up)
 #           ./demo.sh --no-git    Docker part + clean up only (Parts 1-10)
-#           ./demo.sh --git-only  clean up + Git + GitHub only (Parts 10-12)
+#           ./demo.sh --git-only  clean up + Git + GitHub + sign out only (Parts 10-13)
 #           ./demo.sh --no-push   use Git, but do not upload to GitHub
 #           ./demo.sh --push      log in to GitHub without asking first
 #           ./demo.sh --logout    sign out of GitHub on this computer, completely
-#           ./demo.sh --logout-after   upload, then sign out (for shared computers)
+#           ./demo.sh --stay-signed-in   skip Part 13 (stay signed in to GitHub)
 #           ./demo.sh --help
 #
 #  While it runs:  Enter = skip the current pause    p = pause    Ctrl+C = stop
@@ -48,7 +49,7 @@ DO_PUSH=1              # Part 12
 FORCE_PUSH=0           # --push: log in to GitHub without asking
 SETUP_ONLY=0
 LOGOUT_ONLY=0          # --logout
-LOGOUT_AFTER=0         # --logout-after
+STAY_SIGNED_IN=0       # --stay-signed-in: skip the sign-out in Part 13
 LOGGED_OUT=0
 IMPORT_FILE=""         # --import-update FILE (used by the Windows launcher)
 REPO_NAME="${REPO_NAME:-compose-demo}"
@@ -69,11 +70,12 @@ while [ $# -gt 0 ]; do
     --no-push)   DO_PUSH=0 ;;
     --push)      FORCE_PUSH=1 ;;
     --logout)    LOGOUT_ONLY=1 ;;
-    --logout-after) LOGOUT_AFTER=1 ;;
+    --stay-signed-in) STAY_SIGNED_IN=1 ;;
+    --logout-after) STAY_SIGNED_IN=0 ;;   # older option name: signing out is now the default
     --import-update)
       shift; IMPORT_FILE="${1:-}"
       [ -z "$IMPORT_FILE" ] && { echo "--import-update needs a file name"; exit 1; } ;;
-    --help|-h)   sed -n '2,35p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --help|-h)   sed -n '2,36p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "Unknown option: $1   (see ./demo.sh --help)"; exit 1 ;;
   esac
   shift
@@ -142,7 +144,7 @@ part() {   # part <number> <title> <time>
   if [ "$MODE" != "fast" ] && [ -t 1 ]; then clear; fi
   echo
   line
-  printf '%s\n' "${B}${MAG}  PART $1 of 12  -  $2${R}   ${DIM}(about $3)${R}"
+  printf '%s\n' "${B}${MAG}  PART $1 of 13  -  $2${R}   ${DIM}(about $3)${R}"
   line
 }
 
@@ -407,7 +409,7 @@ device_code_help() {   # the same 5 steps for login and for adding a permission
 github_login() {
   echo
   device_code_help "ONE-TIME GITHUB LOGIN" \
-    "The script needs to log in to your GitHub account once. After this, it remembers the login, and the demo never asks again."
+    "The script needs to sign in to your GitHub account to upload. At the end, Part 13 signs out again, so nothing stays on this computer. (With --stay-signed-in, the sign-in is kept for the next run.)"
   run "gh auth login --hostname github.com --git-protocol https --web --scopes workflow" \
       gh auth login --hostname github.com --git-protocol https --web --scopes workflow
   echo
@@ -498,7 +500,7 @@ write_report() {   # writes results/latest-run.md
 }
 
 # ----------------------------------------------------------------------------
-# Signing out of GitHub completely on this computer (--logout / --logout-after)
+# Signing out of GitHub completely on this computer (Part 13 and --logout)
 # ----------------------------------------------------------------------------
 github_logout() {
   echo
@@ -547,7 +549,9 @@ github_logout() {
     note "A GH_TOKEN or GITHUB_TOKEN environment variable is set. It keeps gh signed in."
     note "Remove that line from ~/.bashrc or ~/.profile, then open a new terminal."
   fi
-  rm -f "$URL_FILE" 2>/dev/null
+  # The project address is public, not a secret. In Part 13 it is kept, so the Windows launcher
+  # can still open the project page after the demo. --logout on its own removes it.
+  [ "$LOGOUT_ONLY" = 1 ] && rm -f "$URL_FILE" 2>/dev/null
 
   run "gh auth status" sh -c 'gh auth status 2>&1 || true'
   if ! gh_logged_in && ! git config --global --get-regexp '^credential\.https://(gist\.)?github\.com\.' >/dev/null 2>&1; then
@@ -729,7 +733,7 @@ ask_github() {   # returns 0 if the user wants to upload to GitHub
   local answer=""
   echo
   printf '%s\n' "  ${B}Upload the project to GitHub at the end?${R}"
-  printf '%s\n' "  This needs a free GitHub account and a one-time login with a code."
+  printf '%s\n' "  This needs a free GitHub account and a sign-in with a one-time code."
   printf '%s' "  Type y and press Enter for Yes. Just press Enter for No. (No after ${PUSH_ASK_TIMEOUT} seconds): "
   read -r -t "$PUSH_ASK_TIMEOUT" answer </dev/tty || true
   echo
@@ -835,19 +839,19 @@ preflight() {
       note "Install it with: sudo apt install -y gh"
       DO_PUSH=0
     elif ! gh_logged_in; then
-      if [ "$HAVE_TTY" = 1 ] && [ "$MODE" != "fast" ]; then
+      if [ "$HAVE_TTY" = 1 ] && { [ "$MODE" != "fast" ] || [ "$FORCE_PUSH" = 1 ]; }; then
         if [ "$FORCE_PUSH" = 1 ] || [ "$SETUP_ONLY" = 1 ] || ask_github; then
           if ! github_login; then
             fail "GitHub login did not finish. The project will be saved with Git, but not uploaded."
-            note "To try the login again later, run:  ./demo.sh --setup"
+            note "To try again later (sign in, save, upload, sign out):  ./demo.sh --git-only --push"
             DO_PUSH=0
           fi
         else
-          info "OK, no upload this time. (To upload later: ./demo.sh --setup, then ./demo.sh)"
+          info "OK, no upload this time. (To upload later: ./demo.sh --git-only --push)"
           DO_PUSH=0
         fi
       else
-        info "GitHub is not logged in, so the upload is skipped. (Log in with: ./demo.sh --setup)"
+        info "GitHub is not signed in, so the upload is skipped. (To sign in and upload: ./demo.sh --git-only --push)"
         DO_PUSH=0
       fi
     fi
@@ -891,11 +895,18 @@ start_screen() {
   printf '%s\n' "  What will happen:"
   [ "$DO_DOCKER" = 1 ] && printf '%s\n' "    Parts 1-9   Docker Compose: start a website + database app, test it, stop it"
   printf '%s\n'                        "    Part 10     Clean up: remove temporary things, check that every project file is safe"
-  [ "$DO_GIT" = 1 ]    && printf '%s\n' "    Part 11     Git: save the project and its history"
+  [ "$DO_GIT" = 1 ]    && printf '%s\n' "    Part 11     Git: save the project, its history and the results report"
   if [ "$DO_PUSH" = 1 ]; then
     printf '%s\n' "    Part 12     GitHub: upload the project to the GitHub account '${GH_USER}' and verify it"
   elif [ "$DO_GIT" = 1 ]; then
     printf '%s\n' "    Part 12     GitHub: skipped this time (see the notes above)"
+  fi
+  if [ "$DO_GIT" = 1 ]; then
+    if [ "$STAY_SIGNED_IN" = 1 ]; then
+      printf '%s\n' "    Part 13     Sign out of GitHub: skipped (--stay-signed-in)"
+    else
+      printf '%s\n' "    Part 13     Sign out of GitHub again: the safe end of the GitHub session"
+    fi
   fi
   printf '%s\n'                        "    At the end  A final confirmation screen with the result of every check"
   echo
@@ -1448,7 +1459,7 @@ part12() {
               "To upload: open the original project on GitHub, click Fork, open a codespace on YOUR fork, and run ./demo.sh there."
     else
       explain "In this part, the project and the results are uploaded to GitHub. This time it is skipped (see the notes at the start), so everything is saved only on this computer." \
-              "To upload later: run './demo.sh --setup' once to connect GitHub, then './demo.sh --git-only'. Or follow the steps in docs/10-github-by-hand.md."
+              "To upload later: run './demo.sh --git-only --push'. It signs in with a one-time code, saves, uploads, and signs out again. Or follow the steps in docs/10-github-by-hand.md."
     fi
     return 0
   fi
@@ -1573,8 +1584,36 @@ part12() {
   echo
   explain "Anyone can open that page, read the documentation and the results, and run the same demo: fork it and open it in GitHub Codespaces, or download it with 'git clone $REPO_URL.git'."
 
-  if [ "$LOGOUT_AFTER" = 1 ]; then
-    github_logout
+}
+
+# ============================================================================
+# PART 13 - Sign out of GitHub (the safe end of the GitHub session)
+# ============================================================================
+part13() {
+  part 13 "Sign out of GitHub" "1.5 min"
+  local why="Why? While this computer is signed in, anyone who uses it after me could upload to my GitHub account, or read my private projects. On a shared computer, like a school lab, signing out is a must."
+  if [ "$UPLOADED" = 1 ]; then
+    explain "The upload is finished. The last step of a safe GitHub session is to sign out again." "$why"
+  else
+    explain "Nothing was uploaded this time. Still, the safe end of every session is to make sure that this computer is not signed in to GitHub." "$why"
+  fi
+
+  if [ "$IN_CODESPACES" = 1 ]; then
+    step "'gh auth status' shows how this codespace is signed in." "gh auth status" sh -c 'gh auth status 2>&1 || true'
+    explain "A codespace uses a temporary key that GitHub creates only for this codespace (shown as GITHUB_TOKEN). Nothing is stored on my own computer." \
+            "The key stops working when the codespace is stopped or deleted. When I am finished: github.com/codespaces, the three dots next to the codespace, Stop codespace (or Delete)."
+    pass_check "GitHub sign-in: only a temporary codespace key, nothing stored on your own computer"
+    return 0
+  fi
+  if [ "$STAY_SIGNED_IN" = 1 ]; then
+    note "--stay-signed-in was used, so this computer stays signed in to GitHub."
+    note "To sign out later, run:  ./demo.sh --logout"
+    pause 3
+    return 0
+  fi
+  github_logout
+  if [ "$LOGGED_OUT" = 1 ]; then
+    notice "This computer is signed out of GitHub. The next run asks for a new one-time code if you want to upload again. That is normal and safe."
   fi
 }
 
@@ -1590,7 +1629,7 @@ closing() {
     "Before uploading, the script cleaned up everything temporary and proved with fingerprints that no project file was damaged." \
     "All results of this run are written to a report, results/latest-run.md, so anyone can check them later."
   if [ "$DO_GIT" = 1 ]; then
-    box "$CYAN" "CLOSING" "With Git, the project and its full history are saved. With the GitHub CLI, it is uploaded to GitHub, so anyone can download it, learn from it, and run it."
+    box "$CYAN" "CLOSING" "With Git, the project and its full history are saved. With the GitHub CLI, it is uploaded to GitHub, so anyone can download it, learn from it, and run it. And at the end, the computer was signed out of GitHub again, so the session ended safely."
   fi
   box "$CYAN" "CLOSING" "Thank you. Any questions?"
   echo
@@ -1611,9 +1650,11 @@ closing() {
     printf '    %-40s %s\n' "git commit -m \"message\""             "create a save point"
     printf '    %-40s %s\n' "git log --oneline"                     "show the history"
     printf '    %-40s %s\n' "git diff"                              "show exactly what changed"
-    printf '    %-40s %s\n' "gh auth login"                         "log in to GitHub (once)"
+    printf '    %-40s %s\n' "gh auth login"                         "sign in to GitHub with a one-time code"
     printf '    %-40s %s\n' "gh repo create NAME --source=. --push" "create the GitHub project and upload"
     printf '    %-40s %s\n' "git push"                              "upload new save points to GitHub"
+    printf '    %-40s %s\n' "gh auth logout"                        "sign out: delete the key from this computer"
+    printf '    %-40s %s\n' "git config --remove-section ..."       "remove Git's GitHub sign-in setting"
   fi
   echo
   pause 8
@@ -1720,6 +1761,7 @@ if [ "$DO_GIT" = 1 ]; then
   else
     note "Part 11 did not finish. Fix the problem shown above, then run:  ./demo.sh --git-only"
   fi
+  part13
 else
   end_part_timer
   write_report      # no Git: the report is still written (for example on GitHub Actions)

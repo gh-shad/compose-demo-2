@@ -1,8 +1,8 @@
 # 05 - Git and GitHub
 
-This page explains Parts 11 and 12 of the demo: how the project and the results are saved with
-**Git**, how they are uploaded to **your own GitHub**, how the upload is **verified**, and how
-GitHub **tests** the project automatically. To do every step yourself, see
+This page explains Parts 11, 12 and 13 of the demo: how the project and the results are saved with
+**Git**, how they are uploaded to **your own GitHub**, how the upload is **verified**, how the
+computer **signs out** again, and how GitHub **tests** the project automatically. To do every step yourself, see
 [10 - GitHub by hand](10-github-by-hand.md).
 
 **Back to:** [README](../README.md) · **Previous:** [04 - Walkthrough](04-demo-walkthrough.md) · **Next:** [06 - Every file explained](06-files-explained.md)
@@ -88,7 +88,7 @@ To show how Git notices changes, the script adds one line to `results/run-histor
 | Where | How you are signed in |
 |---|---|
 | **GitHub Codespaces** | Automatically. The codespace has a temporary key for your repository. Nothing to do |
-| **VM or Linux** | Once, in "Getting ready", if you answer **y**: `gh auth login --hostname github.com --git-protocol https --web --scopes workflow`. You type a one-time code at <https://github.com/login/device>. Your password is never typed in the terminal |
+| **VM or Linux** | In "Getting ready", if you answer **y** (or use `--push`): `gh auth login --hostname github.com --git-protocol https --web --scopes workflow`. You type a one-time code at <https://github.com/login/device>. Your password is never typed in the terminal. Because Part 13 signs out at the end, every run that uploads asks for a new code (with `--stay-signed-in`, only the first one) |
 
 `--scopes workflow` adds the permission that GitHub needs to accept the files in `.github/workflows/`.
 If you signed in earlier without it, the script asks once: `gh auth refresh --hostname github.com --scopes workflow`.
@@ -143,10 +143,31 @@ followed by the links to the project, the results report, the run history and th
 Then, when GitHub allows it, `gh api repos/<you>/<project>/contents --jq '.[].name'` lists the
 files on GitHub, and `gh run list` shows the automatic test run that just started.
 
-### 3. Signing out
+## Part 13: signing out, step by step
 
-The final screen tells you if the computer is still signed in. On a shared computer, run
-`./demo.sh --logout` (or use `--logout-after`). Why this is needed, and what it removes:
+Signing in, uploading and **signing out** together make one safe GitHub session. Part 13 runs
+after every upload (outside Codespaces):
+
+| Command | Meaning |
+|---|---|
+| `gh auth logout --hostname github.com --user <you>` | Deletes gh's saved key from this computer |
+| `git config --global --remove-section credential.https://github.com` | Deletes Git's setting to use that key (also for `gist.github.com`) |
+| `sed -i '/github\.com/d' ~/.git-credentials` | Only if that file exists: deletes saved GitHub passwords |
+| `gh auth status` | Checks: `You are not logged into any GitHub hosts` |
+
+The check **"Signed out of GitHub on this computer (GitHub CLI and Git)"** is recorded, and the
+final screen shows **[OK] This computer is signed out of GitHub.** A last box explains how to
+**revoke** the key on github.com (Settings → Applications → GitHub CLI → Revoke access),
+because `gh auth logout` removes the key from this computer but does not cancel it on GitHub.
+
+| Option | Effect |
+|---|---|
+| *(default)* | Part 13 signs out |
+| `--stay-signed-in` | Part 13 is skipped. Use it only on your own private computer |
+| `--logout` | Only signs out (no demo). Use it after `--stay-signed-in`, or if a run was stopped early |
+
+In **Codespaces**, Part 13 only explains: the codespace's temporary key stops working when the
+codespace is stopped or deleted. Why signing out on the website is not enough:
 [10 - Signing in and signing out](10-github-by-hand.md#signing-in-and-signing-out).
 
 ---

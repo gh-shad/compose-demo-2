@@ -221,16 +221,23 @@ There are **separate** sign-ins, and each one must be signed out on its own:
 Signing out in the browser does not touch the key inside the VM. And `gh auth logout` removes
 the key only from that one computer: GitHub still accepts it until you revoke it on the website.
 
-### Sign out completely with one command
+### The demo signs out by itself (Part 13)
+
+After every upload, **Part 13** of the demo signs out completely: it removes the gh key, Git's
+GitHub settings, and GitHub lines in `~/.git-credentials`, checks the result, and shows the last
+step on the website (revoke). So a complete run is one safe GitHub session: **sign in → upload →
+verify → sign out**. Use `./demo.sh --stay-signed-in` only on your own private computer, if you
+want to keep the sign-in for the next run.
+
+### Sign out completely with one command (any time)
 
 ```bash
 ./demo.sh --logout          # inside the VM or on Linux
 Start-Demo.bat --logout     # on Windows, for the Multipass VM
 ```
 
-It removes the gh key, Git's GitHub settings, and GitHub lines in `~/.git-credentials`, checks
-the result, and shows the last step on the website (revoke). Use `./demo.sh --logout-after` to
-upload and then sign out in one go, for example on a shared computer.
+This is Part 13 on its own. Use it after `--stay-signed-in`, after a run that was stopped before
+Part 13, or after signing in by hand with `gh auth login`.
 
 ### In GitHub Codespaces
 

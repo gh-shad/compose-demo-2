@@ -34,8 +34,8 @@ Find your problem in the tables below. Every `[PROBLEM]` message of the script a
 
 | Problem | Cause | Fix |
 |---|---|---|
-| The upload was skipped | Not logged in, or you answered No | `./demo.sh --setup` to log in, then `./demo.sh --git-only` |
-| The login code is not accepted | It expired (it is valid for about 15 minutes) | Run `./demo.sh --setup` again for a new code |
+| The upload was skipped | Not signed in, or you answered No | `./demo.sh --git-only --push`: signs in with a code, saves, uploads and signs out again (Parts 10 to 13) |
+| The login code is not accepted | It expired (it is valid for about 15 minutes) | Run the demo again (or `./demo.sh --setup`) for a new code |
 | `refusing to allow an OAuth App to create or update workflow` | The `workflow` permission is missing | `gh auth refresh --hostname github.com --scopes workflow` (or `./demo.sh --setup`) |
 | The project went to `compose-demo-2` | A different project already had the name, or GitHub had changes your computer did not have | Nothing was overwritten. Use the new project, or rename it on GitHub: project → **Settings** → **Repository name** |
 | `Uploaded to GitHub and verified` FAILED | GitHub did not show the new commit in time | Wait a minute, then: `git rev-parse HEAD` and `gh api repos/<you>/<project>/commits/main --jq .sha` should match |
@@ -49,7 +49,9 @@ Find your problem in the tables below. Every `[PROBLEM]` message of the script a
 | **Still signed in after signing out** | Signing out on github.com only ends the browser session. The GitHub CLI in the VM keeps its own key, and Git is set up to use it. `gh auth logout` only removes the key from that one computer | `./demo.sh --logout` (or `Start-Demo.bat --logout`), then revoke the key: <https://github.com/settings/applications> → **GitHub CLI** → **Revoke access**. Full explanation: [10](10-github-by-hand.md#signing-in-and-signing-out) |
 | Still signed in after `--logout` | A `GH_TOKEN` or `GITHUB_TOKEN` variable is set | The script tells you. Remove that line from `~/.bashrc` or `~/.profile`, then open a new terminal |
 | Git on Windows still pushes without asking | Git for Windows saved the password in the Credential Manager | Command Prompt: `cmdkey /delete:git:https://github.com`, or Control Panel → Credential Manager → Windows Credentials |
-| Wrong GitHub account | You signed in with another account earlier | `./demo.sh --logout`, then `./demo.sh --setup` to sign in with the right one |
+| Wrong GitHub account | You signed in with another account earlier | `./demo.sh --logout`, then run the demo again and sign in with the right account |
+| It asks for a new one-time code every time | Part 13 signs out at the end of every run. That is the safe default | Normal. On your own private computer only, use `./demo.sh --stay-signed-in` to keep the sign-in |
+| The final screen says "still signed in" | `--stay-signed-in` was used, or Part 13 could not finish | `./demo.sh --logout` |
 
 ## GitHub Codespaces
 
@@ -118,7 +120,8 @@ first setup, the images are already in the VM).
 Yes, for a new project: `REPO_NAME=my-name ./demo.sh`. An existing connection (`origin`) is always used as it is.
 
 **How long does it take?**
-About 15 minutes at normal speed, about 20 minutes with `--slow`, and about 2 minutes with `--fast`.
+About 15 to 20 minutes at normal speed (the Docker parts 1 to 10 take about 14 minutes, Git, GitHub
+and signing out a few more), about 20 to 25 minutes with `--slow`, and about 2 to 3 minutes with `--fast`.
 The very first start of the VM takes about 10 extra minutes.
 
 **Can I present it myself, step by step?**

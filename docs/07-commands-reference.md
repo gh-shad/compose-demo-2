@@ -39,14 +39,18 @@ Words in `<angle brackets>` are placeholders: replace them with your own value.
 |---|---|
 | `./demo.sh` | The whole demo, automatic (press Enter once) |
 | `./demo.sh --help` | Shows all options |
-| `./demo.sh --setup` | Checks + one-time GitHub login, then stops |
+| `./demo.sh --slow` / `--manual` / `--fast` | More time to read / Enter before every step / no pauses |
+| `./demo.sh --setup` | Checks + GitHub sign-in with a one-time code, then stops |
+| `./demo.sh --keep` | Leaves the containers running at the end, to explore them |
 | `./demo.sh --fast --no-git` | Quick Docker test without Git (what GitHub Actions runs) |
-| `./demo.sh --git-only` | Clean up + Git + GitHub only |
-| `./demo.sh --logout` | Signs out of GitHub on this computer, completely |
-| `./demo.sh --logout-after` | Uploads, then signs out |
+| `./demo.sh --git-only` | Clean up + Git + GitHub + sign out only (Parts 10 to 13) |
+| `./demo.sh --no-push` | Everything, but no upload |
+| `./demo.sh --push` | Signs in to GitHub without asking first |
+| `./demo.sh --stay-signed-in` | Skips Part 13: stays signed in to GitHub after the upload (only on your own computer) |
+| `./demo.sh --logout` | Signs out of GitHub on this computer, completely (Part 13 on its own) |
 | `cat results/latest-run.md` | Shows the report of the newest run |
 
-All options: [README, section 9](../README.md#9-options).
+All options: [README, section 10.8](../README.md#108-all-options).
 
 ## Docker Compose
 

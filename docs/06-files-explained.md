@@ -10,7 +10,7 @@ What each file in this project does, and how the important parts work inside.
 
 | File | Runs on | Purpose |
 |---|---|---|
-| `demo.sh` | Linux (the VM) | The automatic, narrated demo (all 12 parts) |
+| `demo.sh` | Linux (the VM, Codespaces) | The automatic, narrated demo (all 13 parts) |
 | `docker-compose.yml` | Linux (Docker) | The application: 4 services, 1 network, 1 volume |
 | `html/index.html` | Inside the `web` container | The page that NGINX shows on port 8080 |
 | `Start-Demo.bat` | Windows | Double-click file. Starts `Start-Demo.ps1` |
@@ -24,6 +24,9 @@ What each file in this project does, and how the important parts work inside.
 | `.gitattributes` | Git | Line-ending rules |
 | `LICENSE` | — | MIT license |
 | `README.md`, `docs/*.md` | GitHub / any text viewer | The documentation |
+| `docs/README.md` | — | The documentation index, with a learning path |
+| `docs/images/*.png`, `docs/images/README.md` | — | The screenshots used in the README, and their index |
+| `CHANGELOG.md` | — | The version history of the project |
 
 ---
 
@@ -45,12 +48,12 @@ A **bash script** (about 1,750 lines, with comments). It is organised in section
 | Docker helpers | `dc` = `docker compose`, `dk` = `docker` (with `sudo` if needed), `mysql_ready`, `wait_for_mysql`, `project_leftovers` |
 | `import_update` | Used only by the Windows launcher (see below) |
 | Results | `fact` collects key results while the demo runs. `write_report` writes `results/latest-run.md`. The part timer measures every part |
-| `github_logout` | Signs out completely (`--logout`, `--logout-after`): `gh auth logout`, removes Git's GitHub settings and github.com lines in `~/.git-credentials`, then checks |
+| `github_logout` | Signs out completely (Part 13 and `--logout`): `gh auth logout`, removes Git's GitHub settings and github.com lines in `~/.git-credentials`, then checks |
 | GitHub helpers | `gh_logged_in`, `gh_has_workflow_scope`, `gh_read_account`, `github_login`, `github_add_workflow_scope` |
 | `create_files_if_missing` | Re-creates `docker-compose.yml`, `html/index.html`, `.gitignore`, `README.md` and the two `results/` files if one is missing. Existing files are never changed. (A run history from an older version in `docs/demo-runs.md` is moved to `results/run-history.md`) |
 | `preflight` | "Getting ready": all checks before the demo |
 | `start_screen` | The plan and **Press Enter to start the demo** |
-| `part1` ... `part12` | The 12 parts |
+| `part1` ... `part13` | The 13 parts |
 | `resolve_target`, `same_history`, `free_repo_name`, `create_repo` | Where to upload: push, fork, connect or create (see [05](05-git-and-github.md#how-the-script-decides-where-to-upload)) |
 | `closing`, `final_screen` | The summary speech and the final confirmation |
 | Main | Runs everything in order |
@@ -81,7 +84,7 @@ A **bash script** (about 1,750 lines, with comments). It is organised in section
 | 10 | No containers, networks or volumes of the project left · all files unchanged (SHA-256) · temporary folder deleted |
 | 11 | Nothing left unsaved · the Git history |
 | 12 | Upload verified (commit IDs match) |
-| `--logout` | Signed out of GitHub on this computer (GitHub CLI and Git) |
+| 13 and `--logout` | Signed out of GitHub on this computer (GitHub CLI and Git). In Codespaces: only a temporary codespace key |
 
 ---
 
